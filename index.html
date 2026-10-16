@@ -23,6 +23,7 @@
     <div class="loader__brand">Nyende David <span>— The Descent</span></div>
     <div class="loader__status"><span class="loader__label" data-scramble>PRESSURISING</span> <span class="loader__pct">000</span>%</div>
     <div class="loader__hint">Building the ocean in your browser</div>
+    <button class="loader__skip" type="button" data-magnetic>Skip intro</button>
   </div>
 
   <!-- HUD -->
@@ -30,6 +31,9 @@
     <a class="logo" href="#hero" data-jump="0" data-magnetic aria-label="Back to surface">ND</a>
     <div class="zone-label" aria-live="polite"><span class="zone-label__num">01</span><span class="zone-label__sep">/</span><span class="zone-label__name" data-scramble>SUNLIT ZONE</span></div>
     <div class="hud-top__right">
+      <button class="dossier-btn" type="button" data-magnetic aria-expanded="false" aria-controls="dossier" data-cursor="ALL MY INFO">
+        <span class="dossier-btn__text" data-scramble>DOSSIER</span><kbd>I</kbd>
+      </button>
       <button class="sound" type="button" data-magnetic aria-pressed="false" aria-label="Turn sound on">
         <span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <span class="sound__text" data-scramble>SOUND OFF</span>
@@ -91,19 +95,19 @@
         <p class="card__phase">Arrives in Phases 7–8</p>
       </div>
     </section>
-    <section class="zone" id="skills" data-zone="4">
+    <section class="zone" id="abyss" data-zone="4">
       <div class="card">
-        <p class="card__num">05 · 1,800–3,000 m</p>
-        <h2 class="card__title">Skills</h2>
-        <p class="card__body">What I’m made of: a glowing DNA helix where every rung is a skill, and my tools as glass you can push around.</p>
+        <p class="card__num">05 · 2,000–3,800 m</p>
+        <h2 class="card__title">The Abyss</h2>
+        <p class="card__body">Almost no light. My tools float here as glass cubes you can push around, and gold blobs rise from a warm vent and follow you.</p>
         <p class="card__phase">Arrives in Phase 9</p>
       </div>
     </section>
-    <section class="zone" id="contact" data-zone="5">
+    <section class="zone" id="core" data-zone="5">
       <div class="card">
-        <p class="card__num">06 · 3,000–4,000 m</p>
-        <h2 class="card__title">Contact</h2>
-        <p class="card__body">The sea floor. A warm vent, glowing blobs that follow you, and every way to reach me.</p>
+        <p class="card__num">06 · 4,000 m → 1 µm</p>
+        <h2 class="card__title">The Core</h2>
+        <p class="card__body">At the sea floor we zoom into a single speck and find what I’m made of: my DNA, where every rung is a skill. The smallest thing, last. Then, how to reach me.</p>
         <p class="card__phase">Arrives in Phase 10</p>
         <button class="btn-surface" type="button" data-jump="0" data-magnetic>Back to surface ↑</button>
       </div>

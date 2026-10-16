@@ -1,5 +1,5 @@
 import { input } from '../core/input.js';
-import { isTouch, reducedMotion } from '../core/quality.js';
+import { isTouch } from '../core/quality.js';
 
 // Custom cursor (ring + dot + label), magnetic buttons, and hero letters that ripple
 // like they sit under water when the cursor passes.
@@ -25,20 +25,8 @@ export function createCursor() {
   const mags = [...document.querySelectorAll('[data-magnetic]')];
   const magState = mags.map(() => ({ x: 0, y: 0 }));
 
-  // hero letters
-  const letters = [];
-  document.querySelectorAll('.hero__name span').forEach((line) => {
-    const t = line.textContent; line.textContent = '';
-    for (const ch of t) {
-      const s = document.createElement('span');
-      s.textContent = ch; s.style.display = 'inline-block'; s.style.willChange = 'transform';
-      line.appendChild(s); letters.push({ el: s, y: 0, r: 0 });
-    }
-  });
-
-  let frame = 0;
   return {
-    update(dt, time) {
+    update(dt) {
       const k = 1 - Math.exp(-dt * 14);
       rx += (input.px - rx) * k; ry += (input.py - ry) * k;
       dot.style.transform = `translate3d(${input.px}px, ${input.py}px, 0)`;
@@ -59,20 +47,6 @@ export function createCursor() {
         el.style.transform = `translate3d(${magState[i].x.toFixed(2)}px, ${magState[i].y.toFixed(2)}px, 0)`;
       });
 
-      // letters ripple (every other frame is plenty)
-      if (reducedMotion || (frame++ & 1)) return;
-      for (let i = 0; i < letters.length; i++) {
-        const L = letters[i];
-        const r = L.el.getBoundingClientRect();
-        if (r.bottom < -50 || r.top > innerHeight + 50) continue;
-        const dx = input.px - (r.left + r.width / 2), dy = input.py - (r.top + r.height / 2);
-        const d = Math.hypot(dx, dy);
-        const f = Math.max(0, 1 - d / 260);
-        const ty = -f * 14 + Math.sin(time * 1.4 + i * 0.6) * 2.2;
-        const rot = f * (dx > 0 ? -6 : 6);
-        L.y += (ty - L.y) * 0.25; L.r += (rot - L.r) * 0.25;
-        L.el.style.transform = `translate3d(0, ${L.y.toFixed(2)}px, 0) rotate(${L.r.toFixed(2)}deg)`;
-      }
     },
   };
 }

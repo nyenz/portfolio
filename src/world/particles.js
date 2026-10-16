@@ -46,11 +46,11 @@ export function createParticles(kind, count) {
       attribute vec4 aRand;
       uniform float uTime, uBox, uFall, uSnow, uBio, uTorch, uPx, uFogD, uVel, uBokeh, uPush;
       uniform vec2 uSize;
-      uniform vec3 uCamPos, uCursorDir;
+      uniform vec3 uCamPos, uCursorDir, uFlow;
       varying float vA, vGlow, vBio, vTw;
       void main(){
         float t = uTime;
-        vec3 p = position;
+        vec3 p = position + uFlow;
         p += vec3(sin(t * 0.13 + aRand.y * 31.) * 0.5, -t * uFall * (0.4 + aRand.x), cos(t * 0.11 + aRand.y * 17.) * 0.5);
         p += vec3(sin(t * 0.7 + aRand.z * 40.), sin(t * 0.5 + aRand.x * 30.), cos(t * 0.6 + aRand.w * 20.)) * 0.04; // micro jitter
         p = uCamPos + mod(p - uCamPos + uBox * 0.5, uBox) - uBox * 0.5;

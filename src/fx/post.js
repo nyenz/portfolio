@@ -23,12 +23,14 @@ export const LENS = {
     uRingAmp: { value: 0 },
     uVel: { value: 0 },
     uDark: { value: 0 },         // global dip to dark (transitions)
+    uZoom: { value: 0 },         // radial zoom blur strength (dive-in transitions)
+    uZoomC: { value: new THREE.Vector2(0.5, 0.5) },
   },
   vertexShader: /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform float uTime, uCA, uGrain, uVig, uWobble, uLid, uExpo, uRing, uRingAmp, uVel, uDark;
-    uniform vec2 uRes, uRingC;
+    uniform float uTime, uCA, uGrain, uVig, uWobble, uLid, uExpo, uRing, uRingAmp, uVel, uDark, uZoom;
+    uniform vec2 uRes, uRingC, uZoomC;
     varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
@@ -55,6 +57,13 @@ export const LENS = {
       col.r = texture2D(tDiffuse, uv + off).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - off).b;
+
+      // radial zoom blur: streaks rushing out from the centre while diving in
+      if (uZoom > 0.001) {
+        vec3 acc = col; vec2 zd = (uv - uZoomC) * uZoom * 0.09;
+        for (int i = 1; i < 10; i++) acc += texture2D(tDiffuse, uv - zd * float(i)).rgb;
+        col = acc / 10.;
+      }
 
       col += vec3(0.5, 0.95, 1.) * ring * 0.25;           // bright ring edge
       col *= 1. + uExpo * 2.2;                              // eyes adjusting to light

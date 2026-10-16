@@ -12,6 +12,7 @@ export function createCameraRig(reduced) {
   const dir = new THREE.Vector3(0, 0, -1);
   let fovKick = 0, velPitch = 0;
   const amp = reduced ? 0.3 : 1;
+  const intro = { value: 1 };   // 0 -> 1 while arriving from the DNA dive (wide, rushing in)
 
   // per-zone resting pitch: look up at the light near the surface, down at the floor at the end
   const restPitch = (x) => {
@@ -32,15 +33,16 @@ export function createCameraRig(reduced) {
 
     velPitch += ((-scroll.velocity * 0.0016) - velPitch) * (1 - Math.exp(-dt * 3));
     velPitch = Math.max(-0.12, Math.min(0.12, velPitch));
-    const look = input.dragging || Math.abs(input.dragX) > 0.002 ? 1 : 1;
-    euler.y = -input.sx * 0.2 * amp * look + input.dragX - input.tiltX * 0.25 * amp + Math.sin(t * 0.07) * 0.03 * amp;
+    euler.y = -input.sx * 0.2 * amp + input.dragX - input.tiltX * 0.25 * amp + Math.sin(t * 0.07) * 0.03 * amp;
     euler.x = restPitch(scroll.x) + input.sy * 0.12 * amp + input.dragY + input.tiltY * 0.12 * amp + velPitch + Math.sin(t * 0.11 + 0.7) * 0.015 * amp;
     euler.z = Math.sin(t * 0.13) * 0.012 * amp - input.sx * 0.015 * amp;
     camera.quaternion.setFromEuler(euler);
 
     fovKick += (Math.min(Math.abs(scroll.velocity) * 0.12, 6) - fovKick) * (1 - Math.exp(-dt * 2.5));
     const baseFov = innerWidth / innerHeight < 0.8 ? 62 : 48;
-    camera.fov = baseFov + fovKick * amp;
+    const ik = 1 - intro.value;
+    camera.fov = baseFov + fovKick * amp + ik * 34;
+    camera.position.y += ik * 2.5;
     camera.updateProjectionMatrix();
 
     // the cursor ray (torch direction) in world space
@@ -50,5 +52,5 @@ export function createCameraRig(reduced) {
   }
 
   function resize() { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
-  return { camera, update, resize, cursorDir: dir };
+  return { camera, update, resize, cursorDir: dir, intro };
 }

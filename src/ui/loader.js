@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { input } from '../core/input.js';
 
-// The DNA loader: thousands of glowing particles fly in and assemble a double helix while
-// the site gets ready, then the helix dissolves into the water as the eyes open.
+// The DNA intro: particles drift in and gently assemble a double helix while the site gets
+// ready; then the camera glides in and dives through one glowing base pair into the ocean.
+// Driven from main.js by a single GSAP timeline through `state`.
 export function createLoader(renderer, density = 1) {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
-  camera.position.set(0, 0, 15);
+  const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.01, 100);
 
   const N = 18, H = 13, R = 2.0, TURNS = 1.6;
   const pos = [], from = [], data = [];
   const add = (x, y, z, kind) => {
     pos.push(x, y, z);
-    const a = Math.random() * Math.PI * 2, r = 8 + Math.random() * 10;
-    from.push(Math.cos(a) * r, (Math.random() - 0.5) * 22, Math.sin(a) * r - 4);
+    const a = Math.random() * Math.PI * 2, r = 7 + Math.random() * 12;
+    from.push(Math.cos(a) * r, (Math.random() - 0.5) * 26, Math.sin(a) * r - 3);
     data.push((y + H / 2) / H, Math.random(), kind, Math.random());
   };
   const strand = (t, phase) => {
@@ -21,7 +21,6 @@ export function createLoader(renderer, density = 1) {
     return [Math.cos(ang) * R, -H / 2 + t * H, Math.sin(ang) * R];
   };
   const k = density;
-  // backbones
   for (let s = 0; s < 2; s++) {
     const cnt = Math.round(2600 * k);
     for (let i = 0; i < cnt; i++) {
@@ -30,11 +29,12 @@ export function createLoader(renderer, density = 1) {
       add(x + Math.cos(aa) * rr, y + (Math.random() - 0.5) * 0.12, z + Math.sin(aa) * rr, 0);
     }
   }
-  // base-pair nodes + rungs
+  let target = null;
   for (let i = 0; i < N; i++) {
     const t = (i + 0.5) / N;
     const A = strand(t, 0), B = strand(t, Math.PI);
-    for (let j = 0; j < Math.round(140 * k); j++) {
+    if (i === 9) target = new THREE.Vector3(...A);
+    for (let j = 0; j < Math.round(150 * k); j++) {
       const u = Math.random(), w = Math.random(); const [x, y, z] = (w < 0.5 ? A : B);
       const v = new THREE.Vector3().randomDirection().multiplyScalar(0.34 * Math.cbrt(u));
       add(x + v.x, y + v.y, z + v.z, 1);
@@ -50,63 +50,86 @@ export function createLoader(renderer, density = 1) {
   geo.setAttribute('aFrom', new THREE.Float32BufferAttribute(from, 3));
   geo.setAttribute('aData', new THREE.Float32BufferAttribute(data, 4));
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
-  const uniforms = { uP: { value: 0 }, uD: { value: 0 }, uTime: { value: 0 }, uPx: { value: 1 } };
+  const uniforms = { uP: { value: 0 }, uFade: { value: 0 }, uTime: { value: 0 }, uPx: { value: 1 }, uGlow: { value: 0 } };
   const mat = new THREE.ShaderMaterial({
     uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: /* glsl */`
       attribute vec3 aFrom; attribute vec4 aData;
-      uniform float uP, uD, uTime, uPx;
+      uniform float uP, uTime, uPx;
       varying float vA; varying float vKind; varying float vFront;
       void main(){
         float t = aData.x;
-        float arrive = smoothstep(t * 0.85 - 0.02, t * 0.85 + 0.15, uP);           // bottom builds first
-        vec3 p = mix(aFrom, position, arrive * arrive * (3. - 2. * arrive));
-        p += vec3(sin(uTime * 1.3 + aData.y * 40.), cos(uTime * 1.1 + aData.w * 30.), sin(uTime + aData.y * 20.)) * 0.025;
-        // dissolve: drift outward and up like marine snow, then fade
-        vec3 outw = normalize(vec3(p.x, 0.2, p.z) + 1e-3);
-        p += (outw * (1.5 + aData.y * 5.) + vec3(0., aData.w * 3. - 0.6, 2.5 + aData.y * 6.)) * uD * uD;
+        // each particle arrives in its own time window; the bottom of the helix builds first
+        float start = t * 0.7 + aData.y * 0.12;
+        float arrive = smoothstep(start, start + 0.22, uP);
+        float e = arrive * arrive * (3. - 2. * arrive);
+        // arrive along a gentle curve instead of a straight line
+        vec3 mid = mix(aFrom, position, 0.5) + vec3(0., 1.2 * (1. - aData.w), 0.);
+        vec3 p = mix(mix(aFrom, mid, e), mix(mid, position, e), e);
+        p += vec3(sin(uTime * 0.9 + aData.y * 40.), cos(uTime * 0.7 + aData.w * 30.), sin(uTime * 0.8 + aData.y * 20.)) * (0.02 + 0.25 * (1. - e));
         vec4 mv = modelViewMatrix * vec4(p, 1.);
         gl_Position = projectionMatrix * mv;
+        float z = -mv.z;
         float big = aData.z > 0.5 && aData.z < 1.5 ? 1.5 : 1.;
-        gl_PointSize = (0.05 + aData.w * 0.05) * big * uPx / -mv.z;
-        vFront = smoothstep(0.12, 0., abs(t * 0.85 + 0.07 - uP)) * (1. - uD);
-        vA = (0.15 + 0.85 * arrive) * (1. - smoothstep(0.35, 1., uD));
+        gl_PointSize = min((0.05 + aData.w * 0.05) * big * uPx / max(z, 0.01), 70.);
+        vFront = smoothstep(0.1, 0., abs(start + 0.11 - uP));
+        vA = (0.12 + 0.88 * e) * smoothstep(0.05, 0.6, z);   // particles right at the lens fade, no giant blobs
         vKind = aData.z;
       }`,
     fragmentShader: /* glsl */`
+      uniform float uFade, uGlow;
       varying float vA; varying float vKind; varying float vFront;
       void main(){
         vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard;
         float a = smoothstep(0.5, 0.0, r); a *= a;
         vec3 col = vec3(0.45, 0.95, 1.0);
-        if (vKind > 1.5 && vKind < 2.5) col = vec3(1.0, 0.5, 0.42);   // coral rungs
-        if (vKind > 2.5) col = vec3(0.55, 1.0, 0.82);                  // sea-green rungs
-        col += vFront * vec3(0.8, 1., 1.) * 1.5;
-        gl_FragColor = vec4(col * a * vA, a * vA);
+        if (vKind > 1.5 && vKind < 2.5) col = vec3(1.0, 0.5, 0.42);
+        if (vKind > 2.5) col = vec3(0.55, 1.0, 0.82);
+        col += vFront * vec3(0.7, 1., 1.) * 1.2;
+        col *= 1. + uGlow;
+        float al = a * vA * (1. - uFade);
+        gl_FragColor = vec4(col * al, al);
       }`,
   });
   const helix = new THREE.Points(geo, mat);
   const group = new THREE.Group();
   group.add(helix);
-  group.rotation.set(0.25, 0, -0.55);
   scene.add(group);
+
+  // timeline-driven state
+  const state = { dolly: 0, dive: 0, spin: 0.32 };
+  const startPos = new THREE.Vector3(), tgtW = new THREE.Vector3(), look = new THREE.Vector3(), tmp = new THREE.Vector3();
+  let angle = 0, baseZ = 17;
 
   const el = document.getElementById('loader');
   const pctEl = el.querySelector('.loader__pct');
   let shown = -1;
   return {
-    uniforms,
+    uniforms, state,
     resize(dpr) {
       camera.aspect = innerWidth / innerHeight;
-      camera.position.z = camera.aspect < 0.8 ? 21 : 15;
+      baseZ = camera.aspect < 0.8 ? 24 : 17;
       camera.updateProjectionMatrix();
       uniforms.uPx.value = (innerHeight * dpr) / (2 * Math.tan((camera.fov * Math.PI) / 360));
     },
-    render(time) {
+    render(time, dt) {
       uniforms.uTime.value = time;
-      helix.rotation.y = time * 0.35;
-      group.rotation.x = 0.25 - input.sy * 0.15;
-      group.rotation.z = -0.55 + input.sx * 0.12;
+      angle += dt * state.spin;
+      helix.rotation.y = angle;
+      group.rotation.set(0.22 - input.sy * 0.12 * (1 - state.dive), 0, -0.5 + input.sx * 0.1 * (1 - state.dive));
+      // dolly in slowly, then dive through base pair #9
+      startPos.set(input.sx * 0.6 * (1 - state.dive), input.sy * 0.4 * (1 - state.dive), baseZ - state.dolly * baseZ * 0.3);
+      group.updateMatrixWorld(true);
+      tgtW.copy(target).applyMatrix4(helix.matrixWorld);
+      const d = state.dive;
+      const e = d * d * d;               // slow start, fast finish
+      camera.position.lerpVectors(startPos, tgtW, Math.min(e * 1.08, 1.08));
+      tmp.subVectors(tgtW, startPos).normalize();
+      const lk = Math.min(d * 4, 1), s = lk * lk * (3 - 2 * lk);
+      look.copy(tgtW).addScaledVector(tmp, 4).multiplyScalar(s); // from the helix centre (origin) to past the target
+      camera.lookAt(look);
+      camera.fov = 38 + e * 30;
+      camera.updateProjectionMatrix();
       const p = Math.round(Math.min(uniforms.uP.value, 1) * 100);
       if (p !== shown) { shown = p; pctEl.textContent = String(p).padStart(3, '0'); }
       const ac = renderer.autoClear;

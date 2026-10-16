@@ -19,6 +19,7 @@ export const U = {
   uCamPos: { value: new THREE.Vector3() },
   uVel: { value: 0 },            // scroll speed (for streaks)
   uPx: { value: 1 },             // pixel scale for point sizes
+  uFlow: { value: new THREE.Vector3() }, // water streaming past (a creature swimming makes specks rush by)
 };
 
 export const envState = { bloom: 0.6 };

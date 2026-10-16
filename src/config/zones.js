@@ -4,9 +4,9 @@ export const ZONES = [
   { id: 'hero',       num: '01', name: 'Sunlit Zone',   from: 0,    to: 200 },
   { id: 'about',      num: '02', name: 'Sunlit Edge',   from: 200,  to: 500 },
   { id: 'experience', num: '03', name: 'Twilight Zone', from: 500,  to: 1000 },
-  { id: 'archive',    num: '04', name: 'The Archive',   from: 1000, to: 1800 },
-  { id: 'skills',     num: '05', name: 'Midnight Zone', from: 1800, to: 3000 },
-  { id: 'contact',    num: '06', name: 'The Abyss',     from: 3000, to: 4000 },
+  { id: 'archive',    num: '04', name: 'The Archive',   from: 1000, to: 2000 },
+  { id: 'abyss',      num: '05', name: 'The Abyss',     from: 2000, to: 3800 },
+  { id: 'core',       num: '06', name: 'The Core',      from: 3800, to: 4000 },
 ];
 
 export const MAX_DEPTH = 4000;
@@ -26,9 +26,10 @@ export const ENV = [
   { d: 200,  top: '#2fa8bd', mid: '#0e6478', deep: '#032738', fog: '#0b5466', fogD: 0.045, rays: 0.70, caustic: 0.5, snow: 0.55, bio: 0.05, torch: 0.25, bloom: 0.60, warm: 0 },
   { d: 500,  top: '#16627e', mid: '#073b55', deep: '#011522', fog: '#063550', fogD: 0.060, rays: 0.32, caustic: 0.1, snow: 0.70, bio: 0.20, torch: 0.50, bloom: 0.70, warm: 0 },
   { d: 1000, top: '#123a63', mid: '#061f3c', deep: '#010812', fog: '#05193a', fogD: 0.075, rays: 0.10, caustic: 0.0, snow: 0.85, bio: 0.45, torch: 0.75, bloom: 0.80, warm: 0 },
-  { d: 1800, top: '#082539', mid: '#031322', deep: '#00050a', fog: '#03121f', fogD: 0.085, rays: 0.02, caustic: 0.0, snow: 1.00, bio: 0.70, torch: 0.90, bloom: 0.85, warm: 0 },
-  { d: 3000, top: '#04141d', mid: '#020b12', deep: '#000305', fog: '#020a10', fogD: 0.090, rays: 0.00, caustic: 0.0, snow: 0.85, bio: 0.85, torch: 1.00, bloom: 0.90, warm: 0.15 },
-  { d: 4000, top: '#04161b', mid: '#030b0d', deep: '#120602', fog: '#060b0a', fogD: 0.075, rays: 0.00, caustic: 0.0, snow: 0.60, bio: 0.60, torch: 1.00, bloom: 0.95, warm: 1.0 },
+  { d: 2000, top: '#082539', mid: '#031322', deep: '#00050a', fog: '#03121f', fogD: 0.085, rays: 0.02, caustic: 0.0, snow: 1.00, bio: 0.70, torch: 0.90, bloom: 0.85, warm: 0 },
+  { d: 3200, top: '#04141d', mid: '#020b12', deep: '#000305', fog: '#020a10', fogD: 0.090, rays: 0.00, caustic: 0.0, snow: 0.85, bio: 0.85, torch: 1.00, bloom: 0.90, warm: 0.3 },
+  { d: 3800, top: '#04161b', mid: '#030b0d', deep: '#120602', fog: '#060b0a', fogD: 0.075, rays: 0.00, caustic: 0.0, snow: 0.70, bio: 0.70, torch: 1.00, bloom: 0.95, warm: 1.0 },
+  { d: 4000, top: '#031a20', mid: '#020c10', deep: '#0a0503', fog: '#04100f', fogD: 0.070, rays: 0.00, caustic: 0.0, snow: 0.90, bio: 1.00, torch: 1.00, bloom: 1.00, warm: 0.6 },
 ];
 
 /** scroll progress (0..1) -> depth in metres */
