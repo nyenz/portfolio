@@ -1,0 +1,20 @@
+{
+  "name": "nyende-portfolio",
+  "description": "The Descent - Nyende David portfolio (Three.js)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "gsap": "3.13.0",
+    "lenis": "1.3.27",
+    "three": "0.178.0"
+  },
+  "devDependencies": {
+    "vite": "6.3.5"
+  },
+  "private": true,
+  "type": "module",
+  "version": "0.1.0"
+}

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Nyende David — AI/ML Developer</title>
+  <meta name="description" content="Nyende David, AI/ML developer and full-stack engineer. Computer vision, predictive analytics and full-stack web — an interactive dive through my work." />
+  <meta name="theme-color" content="#021018" />
+  <meta property="og:title" content="Nyende David — The Descent" />
+  <meta property="og:description" content="An interactive dive through the work of AI/ML developer Nyende David." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23021018'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='%23ff7a6b' stroke-width='4'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body class="is-loading">
+  <!-- 3D world -->
+  <canvas id="world" aria-hidden="true"></canvas>
+
+  <!-- Loader -->
+  <div id="loader" role="status" aria-live="polite">
+    <div class="loader__brand">Nyende David <span>— The Descent</span></div>
+    <div class="loader__status"><span class="loader__label" data-scramble>PRESSURISING</span> <span class="loader__pct">000</span>%</div>
+    <div class="loader__hint">Building the ocean in your browser</div>
+  </div>
+
+  <!-- HUD -->
+  <header class="hud-top" aria-label="Site controls">
+    <a class="logo" href="#hero" data-jump="0" data-magnetic aria-label="Back to surface">ND</a>
+    <div class="zone-label" aria-live="polite"><span class="zone-label__num">01</span><span class="zone-label__sep">/</span><span class="zone-label__name" data-scramble>SUNLIT ZONE</span></div>
+    <div class="hud-top__right">
+      <button class="sound" type="button" data-magnetic aria-pressed="false" aria-label="Turn sound on">
+        <span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="sound__text" data-scramble>SOUND OFF</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="meter" aria-label="Depth map — jump to a zone">
+    <div class="meter__readout">
+      <div class="meter__depth"><span class="meter__num">0000</span><small>m</small></div>
+      <dl class="meter__stats">
+        <div><dt>PRESSURE</dt><dd class="stat-p">1.0 atm</dd></div>
+        <div><dt>TEMP</dt><dd class="stat-t">26.0 °C</dd></div>
+        <div><dt>LIGHT</dt><dd class="stat-l">100%</dd></div>
+      </dl>
+    </div>
+    <div class="meter__track">
+      <div class="meter__fill"></div>
+      <div class="meter__marker" aria-hidden="true"></div>
+      <ol class="meter__ticks"></ol>
+    </div>
+  </nav>
+
+  <div class="scroll-hint" aria-hidden="true"><span data-scramble>SCROLL TO DIVE</span><i></i></div>
+
+  <div id="cursor" aria-hidden="true"><div class="cursor__ring"></div><div class="cursor__dot"></div><div class="cursor__label"></div></div>
+
+  <!-- Content: one section per zone (scroll drives depth) -->
+  <main id="content">
+    <section class="zone" id="hero" data-zone="0">
+      <div class="card card--hero">
+        <p class="card__eyebrow" data-scramble>Hi, I’m</p>
+        <h1 class="hero__name"><span>Nyende</span><span>David</span></h1>
+        <p class="hero__role">AI/ML Developer <em>&amp;</em> Full-Stack Engineer</p>
+        <p class="hero__lead">First Class Honours graduate building computer vision, predictive analytics and full-stack systems that solve real problems across East Africa.</p>
+      </div>
+    </section>
+    <section class="zone" id="about" data-zone="1">
+      <div class="card">
+        <p class="card__num">02 · 200–500 m</p>
+        <h2 class="card__title">About</h2>
+        <p class="card__body">Plankton gather into my portrait. Your cursor becomes a torch that reveals the real photo.</p>
+        <p class="card__phase">Arrives in Phase 5</p>
+      </div>
+    </section>
+    <section class="zone" id="experience" data-zone="2">
+      <div class="card">
+        <p class="card__num">03 · 500–1,000 m</p>
+        <h2 class="card__title">Experience</h2>
+        <p class="card__body">A column of glowing jellyfish rises past you, each one carrying a chapter of my journey.</p>
+        <p class="card__phase">Arrives in Phase 6</p>
+      </div>
+    </section>
+    <section class="zone" id="archive" data-zone="3">
+      <div class="card">
+        <p class="card__num">04 · 1,000–1,800 m</p>
+        <h2 class="card__title">The Archive</h2>
+        <p class="card__body">Eight glass tanks, one living model per project. Step inside any of them for the full story.</p>
+        <p class="card__phase">Arrives in Phases 7–8</p>
+      </div>
+    </section>
+    <section class="zone" id="skills" data-zone="4">
+      <div class="card">
+        <p class="card__num">05 · 1,800–3,000 m</p>
+        <h2 class="card__title">Skills</h2>
+        <p class="card__body">What I’m made of: a glowing DNA helix where every rung is a skill, and my tools as glass you can push around.</p>
+        <p class="card__phase">Arrives in Phase 9</p>
+      </div>
+    </section>
+    <section class="zone" id="contact" data-zone="5">
+      <div class="card">
+        <p class="card__num">06 · 3,000–4,000 m</p>
+        <h2 class="card__title">Contact</h2>
+        <p class="card__body">The sea floor. A warm vent, glowing blobs that follow you, and every way to reach me.</p>
+        <p class="card__phase">Arrives in Phase 10</p>
+        <button class="btn-surface" type="button" data-jump="0" data-magnetic>Back to surface ↑</button>
+      </div>
+    </section>
+  </main>
+
+  <noscript><style>#loader{display:none}</style><p class="noscript">This site is an interactive 3D dive and needs JavaScript. Nyende David — AI/ML Developer.</p></noscript>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
