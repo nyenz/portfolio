@@ -108,7 +108,7 @@ export function createLoader(renderer, density = 1) {
     uniforms, state,
     resize(dpr) {
       camera.aspect = innerWidth / innerHeight;
-      baseZ = camera.aspect < 0.8 ? 24 : 17;
+      baseZ = camera.aspect < 0.8 ? 31 : 21;
       camera.updateProjectionMatrix();
       uniforms.uPx.value = (innerHeight * dpr) / (2 * Math.tan((camera.fov * Math.PI) / 360));
     },
@@ -118,7 +118,7 @@ export function createLoader(renderer, density = 1) {
       helix.rotation.y = angle;
       group.rotation.set(0.22 - input.sy * 0.12 * (1 - state.dive), 0, -0.5 + input.sx * 0.1 * (1 - state.dive));
       // dolly in slowly, then dive through base pair #9
-      startPos.set(input.sx * 0.6 * (1 - state.dive), input.sy * 0.4 * (1 - state.dive), baseZ - state.dolly * baseZ * 0.3);
+      startPos.set(input.sx * 0.6 * (1 - state.dive), input.sy * 0.4 * (1 - state.dive), baseZ - state.dolly * baseZ * 0.24);
       group.updateMatrixWorld(true);
       tgtW.copy(target).applyMatrix4(helix.matrixWorld);
       const d = state.dive;
@@ -130,7 +130,7 @@ export function createLoader(renderer, density = 1) {
       camera.lookAt(look);
       camera.fov = 38 + e * 30;
       camera.updateProjectionMatrix();
-      const p = Math.round(Math.min(uniforms.uP.value, 1) * 100);
+      const p = Math.round(Math.min(uniforms.uP.value / 0.96, 1) * 100);
       if (p !== shown) { shown = p; pctEl.textContent = String(p).padStart(3, '0'); }
       const ac = renderer.autoClear;
       renderer.autoClear = false;

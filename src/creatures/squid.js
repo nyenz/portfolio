@@ -193,7 +193,7 @@ void main(){vec3 V=normalize(uCamPos-vWP),N=normalize(vN),L=normalize(uSunD),H=n
  if(k<.5){float s=vP.x;col=mix(RED,MAU,.3*tx);
   float edge=(1.-.7*smoothstep(0.,.4,s))*smoothstep(-.3,.2,cos(vQ.x));
   col=mix(col,CRM,clamp(.6*sp*(1.-.3*s)+.7*bl*edge,0.,1.));
-  col=mix(col,CRM,(1.-smoothstep(0.,.09,s+.06*(tx-.5)))*.95);                                  // pale collar rim
+  col=mix(col,CRM*.78,(1.-smoothstep(0.,.09,s+.06*(tx-.5)))*.7);                                  // pale collar rim
   col=mix(col,CRM,.75*smoothstep(.55,.8,fbm(vR*vec3(6.,12.,12.)+2.))*(1.-smoothstep(.02,.32,s))*smoothstep(.3,-.4,cos(vQ.x)));
   col=mix(col,vec3(.45,.05,.12),.5*(1.-smoothstep(.002,.014,abs(vR.z+.004*(tx-.5))))*step(0.,vR.y)*smoothstep(.15,.3,s)*(1.-smoothstep(.85,.95,s))); // dorsal keel line
   col=mix(col,vec3(.008,.03,.04),smoothstep(.4,.6,vP.y));                                     // the dark cavity inside the collar
