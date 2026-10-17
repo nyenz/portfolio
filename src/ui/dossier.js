@@ -131,6 +131,7 @@ export function createDossier({ lenis, sound }) {
 
   btn && btn.addEventListener('click', (e) => { const r = btn.getBoundingClientRect(); toggle({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }); });
   root.querySelector('.dz-close').addEventListener('click', hide);
+  document.querySelectorAll('[data-open-dossier]').forEach((b) => b.addEventListener('click', (e) => show(e.clientX, e.clientY)));
   frost.addEventListener('click', hide);
   addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && open) hide();

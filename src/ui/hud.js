@@ -24,6 +24,7 @@ export function createHud({ onJump }) {
 
   const els = {
     num: document.querySelector('.meter__num'),
+    unit: document.querySelector('.meter__depth small'),
     fill: document.querySelector('.meter__fill'),
     marker: document.querySelector('.meter__marker'),
     p: document.querySelector('.stat-p'),
@@ -40,14 +41,15 @@ export function createHud({ onJump }) {
   const temp = (d) => (d < 1000 ? 26 - 22 * (1 - Math.exp(-d / 260)) : 4 - 2.2 * Math.min((d - 1000) / 3000, 1));
 
   return {
-    update(s, onZoneChange) {
+    update(s, onZoneChange, scaleText) {
       // marker + fill every frame (smooth), numbers every 3rd frame
       const pct = (s.t * 100).toFixed(3) + '%';
       els.fill.style.height = pct;
       els.marker.style.top = pct;
       if (frame++ % 3 === 0) {
         const d = s.depth;
-        els.num.textContent = String(Math.round(d)).padStart(4, '0');
+        if (scaleText) { els.num.textContent = scaleText.num; els.unit.textContent = scaleText.unit; }
+        else { els.num.textContent = String(Math.round(d)).padStart(4, '0'); els.unit.textContent = 'm'; }
         els.p.textContent = `${(1 + d / 10).toFixed(1)} atm`;
         els.t.textContent = `${temp(d).toFixed(1)} °C`;
         els.l.textContent = `${Math.max(0, 100 * Math.exp(-d / 120)).toFixed(d > 600 ? 2 : 0)}%`;
@@ -61,9 +63,11 @@ export function createHud({ onJump }) {
         onZoneChange && onZoneChange(s.zone);
       }
       // cards: rise in as their zone arrives, drift out as the next one comes
-      els.cards.forEach((c, i) => {
+      els.cards.forEach((c) => {
+        const i = +(c._zone ??= +c.closest('.zone').dataset.zone);
         const local = s.x - i;
-        let p = i === 0 ? 1 - smooth(0.42, 0.66, local) : smooth(-0.08, 0.14, local) * (i === ZONES.length - 1 ? 1 : 1 - smooth(0.46, 0.66, local));
+        const out = c.dataset.out ? +c.dataset.out : 0.46, inn = c.dataset.in ? +c.dataset.in : -0.08;
+        let p = i === 0 ? 1 - smooth(0.42, 0.66, local) : smooth(inn, inn + 0.22, local) * (out >= 1 ? 1 : 1 - smooth(out, out + 0.2, local));
         p = Math.max(0, Math.min(1, p));
         if (Math.abs((c._p ?? -1) - p) > 0.001) { c.style.setProperty('--p', p.toFixed(3)); c._p = p; c.style.visibility = p < 0.002 ? 'hidden' : 'visible'; }
       });

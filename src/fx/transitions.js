@@ -39,5 +39,9 @@ export function sonarJump(target, cx = innerWidth / 2, cy = innerHeight / 2, { r
   tl.fromTo(L.uRing, { value: 0.01 }, { value: 2.4, duration: 1.7, ease: 'power2.out' }, 0)
     .fromTo(L.uRingAmp, { value: 1 }, { value: 0, duration: 1.7, ease: 'power1.in' }, 0)
     .set(L.uRing, { value: -1 });
+  // a long climb back up plays the bubble rush
+  if (target < scroll.t - 0.25) {
+    gsap.timeline().to(L.uBub, { value: 1, duration: 0.6, ease: 'power2.out' }).to(L.uBub, { value: 0, duration: 1.2, ease: 'power2.in' }, duration - 0.6);
+  }
   setTimeout(() => scrollToProgress(target, { duration }), 120);
 }

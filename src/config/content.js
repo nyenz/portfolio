@@ -82,3 +82,96 @@ export const SERVICES = [
   'ML research, reports and consulting',
   'UI / UX and graphic design',
 ];
+
+// Presentation content: one entry per project (same ids as PROJECTS).
+// flow = the "How it works" diagram, left to right.
+export const DETAILS = {
+  traffic: {
+    style: 'grid',
+    problem: 'Traffic data in Kampala is counted by hand, if at all. Planners need live numbers: how many vehicles, what kind, and how they move.',
+    features: [
+      ['Detects', 'Custom YOLOv8 model finds cars, boda-bodas, buses and trucks in every frame.'],
+      ['Tracks', 'ByteTrack gives each vehicle an ID so it is counted once, even through crowds.'],
+      ['Syncs live', 'Counts and classes stream to Firebase for a live dashboard.'],
+    ],
+    flow: ['Road camera', 'YOLOv8 detector', 'ByteTrack IDs', 'Counts + classes', 'Firebase', 'Live dashboard'],
+    results: [['90%', 'mAP accuracy'], ['40 FPS', 'real-time speed'], ['5,000+', 'hand-labelled frames']],
+  },
+  erp: {
+    style: 'stamp',
+    problem: 'A land-survey company tracked every project, payment and title on paper and spreadsheets. Work got lost between stages and nobody could see the whole picture.',
+    features: [
+      ['Project stages', 'Each survey moves through clear stages, with the papers each stage needs checked on the server.'],
+      ['Roles', 'Manager, secretary and staff each see and change only what their job needs.'],
+      ['Audit + print', 'Every change is recorded, and a printable project file carries the company colours.'],
+    ],
+    flow: ['React app', 'Spring Boot API', 'JWT sign-in', 'PostgreSQL', 'Audit trail', 'Printed project file'],
+    results: [['200+', 'improvements shipped'], ['3', 'staff roles'], ['Docker', 'one-command deploy']],
+  },
+  ugachick: {
+    style: 'chain',
+    problem: 'Distributors phoned in orders and nobody could see where an order was. Sales staff work in Business Central and could not change their tools.',
+    features: [
+      ['Order by phone', 'Distributors sign in with phone + PIN, order from the live item list and reorder in one tap.'],
+      ['Follow every step', 'Placed, sales order, packed, actioned, received — with queries and photos until confirmed.'],
+      ['Audit nobody can change', 'Management sees both sides of every order in an add-only ledger.'],
+    ],
+    flow: ['Distributor phone', 'React app', 'Spring Boot 3', 'PostgreSQL ledger', 'Business Central', 'Management view'],
+    results: [['0', 'paid add-ons or SMS'], ['5', 'tracked order steps'], ['Java 21', 'modern backend']],
+  },
+  paper: {
+    style: 'paper',
+    problem: 'Making narrated YouTube videos takes editing skills and paid tools. Creators wanted a free way to go from an idea to a finished video.',
+    features: [
+      ['Three looks', 'Facet, low-poly paper or dark paper cinema — every visual is drawn in code.'],
+      ['Word timing', 'Whisper runs in the browser and finds when every word is spoken.'],
+      ['Frame-perfect export', 'Shorts and long videos export as MP4 with narration, sound and captions.'],
+    ],
+    flow: ['Topic + script', 'AI voice', 'Whisper timing', 'Shot plan', 'Code-built scenes', 'MP4 export'],
+    results: [['$0', 'to run'], ['1080p', 'vertical + wide'], ['11', 'guided steps']],
+  },
+  editforge: {
+    style: 'film',
+    problem: 'Simple video edits need heavy software. Many people just want to cut, speed up and caption a clip without learning an editor.',
+    features: [
+      ['Type to edit', 'Lines like “keep 0:10-0:40” or “speed 2 from 15 to 20” become edits.'],
+      ['Cut on the beat', 'A beat detector slices the video in time with the music.'],
+      ['Follow + captions', 'Face and object follow, on-screen words and captions.'],
+    ],
+    flow: ['Your video', 'Clip workshop', 'Edit lines', 'Parser', 'FFmpeg pipeline', 'Finished clips'],
+    results: [['100%', 'offline'], ['0', 'accounts or tracking'], ['v1.0', 'released']],
+  },
+  cpu: {
+    style: 'heat',
+    problem: 'CPU names and spec sheets are confusing. Buyers struggle to compare Intel, AMD and Apple chips for what they actually do.',
+    features: [
+      ['Compare', 'Pick chips side by side across generations from Intel 8th gen to Apple M4.'],
+      ['See it', 'Radar, thermal and performance-per-watt charts make differences obvious.'],
+      ['Explain', 'A guide powered by Gemini explains the trade-offs in plain words.'],
+    ],
+    flow: ['CPU dataset', 'React + TypeScript', 'Charts', 'Use-case scoring', 'Gemini guide', 'Your pick'],
+    results: [['3', 'chip makers'], ['8+', 'generations'], ['Vite', 'fast build']],
+  },
+  ges: {
+    style: 'contour',
+    problem: 'Geomatic Engineering Solutions needed a professional site to show its survey services, projects and team to new clients.',
+    features: [
+      ['Services', 'Clear pages for every survey and engineering service.'],
+      ['Projects + team', 'Past work and the people behind it build trust.'],
+      ['Contact', 'A simple path from first visit to a quote request.'],
+    ],
+    flow: ['Next.js pages', 'React components', 'SCSS design', 'Optimised images', 'Vercel', 'Clients'],
+    results: [['Next.js', 'fast pages'], ['Mobile', 'first design'], ['Vercel', 'hosting']],
+  },
+  crops: {
+    style: 'grow',
+    problem: 'Uganda’s cash-crop exporters plan without good forecasts. Ten years of UCDA data were sitting unused.',
+    features: [
+      ['Clean data', 'Ten years of monthly exports for 7 major cash crops, cleaned with Pandas.'],
+      ['Compare models', 'Four algorithms tested; Random Forest won.'],
+      ['Easy app', 'A Streamlit app lets anyone pick a crop and month and see the forecast.'],
+    ],
+    flow: ['UCDA records', 'Pandas cleaning', 'Feature building', '4 models compared', 'Random Forest', 'Streamlit app'],
+    results: [['0.46', 'MAE'], ['7', 'cash crops'], ['10 yrs', 'of data']],
+  },
+};

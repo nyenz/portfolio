@@ -22,6 +22,13 @@ import { initHoverScramble, scramble } from './ui/scramble.js';
 import { createReactiveText } from './ui/reactiveText.js';
 import { createDossier } from './ui/dossier.js';
 import { createSquid } from './creatures/squid.js';
+import { createPortrait } from './scenes/portrait.js';
+import { createJellyfish } from './scenes/jellyfish.js';
+import { createArchive } from './scenes/archive.js';
+import { createAbyss } from './scenes/abyss.js';
+import { createCore } from './scenes/core.js';
+import { createPresentation } from './ui/presentation.js';
+import { smooth as sm, toScreen } from './scenes/util.js';
 
 const params = new URLSearchParams(location.search);
 const SKIP_INTRO = params.has('skipintro');
@@ -77,6 +84,14 @@ async function boot() {
   squid.group.scale.setScalar(1.25);
   scene.add(squid.group);
   const squidAnchor = new THREE.Vector3();
+  const portrait = createPortrait({ count: quality.name === 'high' ? 14000 : quality.name === 'med' ? 9000 : 5000, renderer });
+  const jellies = createJellyfish();
+  let presentation = null;
+  const archive = createArchive({ onOpen: (i) => presentation && presentation.show(i) });
+  const abyss = createAbyss({ quality, renderer });
+  const core = createCore({ quality });
+  const scenes = [portrait, jellies, archive, abyss, core];
+  scenes.forEach((sc) => scene.add(sc.group));
 
   // the torch: a real light that future creatures will catch
   const torch = new THREE.PointLight(0x9fefff, 0, 9, 1.6);
@@ -92,6 +107,7 @@ async function boot() {
   const cursor = createCursor();
   const words = createReactiveText();
   const dossier = createDossier({ lenis, sound });
+  presentation = createPresentation({ lenis, sound, archive });
   const fpsWatch = createFpsWatch();
 
   function resize() {
@@ -120,7 +136,9 @@ async function boot() {
   LENS.uniforms.uGrain.value = isTouch ? 0.026 : 0.034;
 
   // ---- frame loop ----
-  let last = performance.now(), time = 0, torchWake = 0.35;
+  let last = performance.now(), time = 0, torchWake = 0.35, lastX = 0;
+  const scrP = {}, darkBase = { v: 0 };
+  void sm;
   renderer.setAnimationLoop((now) => {
     const dt = Math.min((now - last) / 1000, 1 / 20);
     last = now; time += dt;
@@ -160,7 +178,32 @@ async function boot() {
       U.uFlow.value.y -= squid.flow() * dt * 0.55;     // specks stream down past the swimming squid
     }
 
-    hud.update(scroll, (z) => { sound.ping(1 - z * 0.06); });
+    // the scenes along the dive
+    const S = { x: scroll.x, time, camera, input, scroll };
+    for (const sc of scenes) sc.update(dt, S);
+
+    // scroll-scrubbed transitions between scenes (they all play backwards too)
+    if (!loading) {
+      const L = LENS.uniforms, x = scroll.x;
+      // ink burst: the squid jets and squirts ink (hero -> about)
+      const inkP = Math.min(Math.max((x - 0.6) / 0.5, 0), 1) * 2;
+      if (x > 0.6 && lastX <= 0.6) { squid.state.jet = 1; sound.ping(0.7); }
+      L.uInk.value = x > 0.6 && x < 1.1 ? inkP : 0;
+      if (squid.group.visible) { toScreen(squid.group.position, camera, scrP); L.uInkC.value.set(scrP.x / innerWidth, 1 - scrP.y / innerHeight); }
+      // pressure glitch (experience -> archive)
+      const g = Math.max(0, 1 - Math.abs(x - 2.97) / 0.15);
+      L.uGlitch.value = g * g * (reducedMotion ? 0.3 : 1);
+      // glass shatter (archive -> abyss)
+      if (x > 3.82 && x < 4.0) { L.uShatter.value = (x - 3.82) / 0.18; if (lastX <= 3.82) sound.ping(0.55); }
+      else L.uShatter.value = 0;
+      const after = x >= 4.0 && x < 4.14 ? 1 - (x - 4.0) / 0.14 : 0;
+      L.uDark.value = Math.max(after * 0.9, darkBase.v);
+      // zoom into a speck (abyss -> core)
+      L.uZoom.value = Math.max(0, 1 - Math.abs(x - 5.08) / 0.16) * (reducedMotion ? 0.25 : 0.9);
+      lastX = x;
+    }
+
+    hud.update(scroll, (z) => { sound.ping(1 - z * 0.06); }, core.scaleText(scroll));
     cursor.update(dt);
     words.update(dt, time, scroll.velocity);
     sound.setDepth(scroll.depth);
@@ -173,7 +216,7 @@ async function boot() {
   });
 
   // debug handle for testing
-  window.__dive = { scroll, input, U, quality, jump, LENS, dossier, squid };
+  window.__dive = { scroll, input, U, quality, jump, LENS, dossier, squid, archive, presentation };
 
   if (SKIP_INTRO) {
     loading = false;
