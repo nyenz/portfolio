@@ -90,7 +90,7 @@ renderer.setAnimationLoop((now) => {
   });
   U.uFlow.value.y -= squid.flow() * dt * 0.55;
 
-  post.bloom.strength = envState.bloom * (isTouch ? 0.85 : 1);
+  post.bloom.strength = Math.max(envState.bloom, 0.85) * (isTouch ? 0.85 : 1);   // soft glow like the reference
   LENS.uniforms.uTime.value = time;
   post.composer.render(dt);
 });

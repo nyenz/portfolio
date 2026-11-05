@@ -28,7 +28,7 @@ const P_MANTLE = 0, P_INNER = 1, P_HEAD = 2, P_FIN = 3, P_ARM = 4, P_TENT = 5, P
 /* ------------------------------------------------------------------ shape */
 // mantle half-width along the body (x = 0 at the collar rim)
 const MANTLE = [[-0.04, 0.254], [-0.004, 0.252], [0.05, 0.246], [0.13, 0.226], [0.21, 0.194], [0.28, 0.154], [0.33, 0.116], [0.37, 0.08], [0.4, 0.05], [0.45, 0.029], [0.6, 0.021], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
-const HEAD = [[0.07, 0.11], [0.02, 0.118], [-0.03, 0.134], [-0.078, 0.14], [-0.125, 0.122], [-0.175, 0.098], [-0.215, 0.088], [-0.25, 0.08], [-0.274, 0.062], [-0.29, 0.001]].reverse();   // ascending x for curve()
+const HEAD = [[0.07, 0.112], [0.02, 0.122], [-0.03, 0.132], [-0.08, 0.13], [-0.13, 0.116], [-0.18, 0.1], [-0.225, 0.088], [-0.262, 0.082], [-0.286, 0.068], [-0.3, 0.001]].reverse();   // ascending x for curve()
 function curve(tab, x) {
   // Catmull-Rom through the profile points (smooth, no kinks -> no shading bands)
   if (x <= tab[0][0]) return tab[0][1];
@@ -55,9 +55,9 @@ function GeoBuilder() {
   return {
     pos, rest, part, uv, idx,
     v(p, pr, u, w) { pos.push(p.x, p.y, p.z); rest.push(p.x, p.y, p.z); part.push(pr); uv.push(u, w); return pos.length / 3 - 1; },
-    grid(nu, nv, fn, pr, flip, wrapV) {
+    grid(nu, nv, fn, pr, flip, wrapV, uvx) {
       const b = pos.length / 3, tmp = new THREE.Vector3();
-      for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) { fn(i / nu, j / nv, tmp); this.v(tmp, pr, i / nu, j / nv); }
+      for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) { fn(i / nu, j / nv, tmp); this.v(tmp, pr, uvx === undefined ? i / nu : uvx, j / nv); }
       const C = nv + 1;
       for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
         const a = b + i * C + j, c = a + C, d = a + 1, e = c + 1;
@@ -100,10 +100,12 @@ function buildBody() {
   const rimX = (a) => -0.03 + 0.075 * (1 - Math.cos(a)) / 2;   // the back of the collar reaches forward over the head; the belly side is cut back
   B.grid(110, NA, (u, v, o) => { const a = (v - 0.5) * TAU; const x = lp(rimX(a), 1.0, Math.pow(u, 1.15)); mantlePoint(x, a, 1, o); }, P_MANTLE, false);
   // inner wall of the collar opening (dark), slightly inside the rim
-  B.grid(16, NA, (u, v, o) => { const x = lp(rimX((v - 0.5) * TAU), 0.22, u); const s = lp(1, 0.9, ss(0, 0.05, u)); mantlePoint(x, (v - 0.5) * TAU, s * (1 - u * 0.25), o); }, P_INNER, true);
+  // rolled lip: a half-round from the outer skin to the inner wall
+  B.grid(8, NA, (u, v, o) => { const a = (v - 0.5) * TAU, t = u * Math.PI; mantlePoint(rimX(a) - 0.014 * Math.sin(t), a, 1 - 0.045 * (1 - Math.cos(t)), o); }, P_MANTLE, false, undefined, 0);
+  B.grid(16, NA, (u, v, o) => { const x = lp(rimX((v - 0.5) * TAU), 0.22, u); mantlePoint(x, (v - 0.5) * TAU, 0.91 * (1 - u * 0.25), o); }, P_INNER, true);
   // head (neck hidden inside the collar, bulge, crown where the arms grow)
   B.grid(40, 40, (u, v, o) => {
-    const x = lp(0.07, -0.292, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
+    const x = lp(0.07, -0.3, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
     o.set(x, Math.cos(a) * r * 0.86 + 0.045 * ss(-0.2, 0.06, x) - 0.005, Math.sin(a) * r * (1 - 0.1 * ss(-0.15, -0.29, x)));
   }, P_HEAD, true);
   // funnel: a short cone under the head, coming out of the collar
@@ -118,9 +120,9 @@ function buildEyes() {
   const B = GeoBuilder();
   for (const side of [-1, 1]) {
     B.grid(18, 24, (u, v, o) => {
-      const th = u * Math.PI, ph = v * TAU, r = 0.054;
+      const th = u * Math.PI, ph = v * TAU, r = 0.064;
       // the eye looks sideways (local z), u=0 at the pupil
-      o.set(Math.sin(th) * Math.cos(ph) * r - 0.08, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.024, side * (0.122 + Math.cos(th) * r * 0.55));
+      o.set(Math.sin(th) * Math.cos(ph) * r - 0.08, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.024, side * (0.114 + Math.cos(th) * r * 0.5));
     }, P_EYE, side < 0);
   }
   return B.build();
@@ -186,7 +188,7 @@ function buildHooks(list) {
 const VERT = /* glsl */`
   attribute vec3 aRest; attribute float aPart; attribute vec2 aUv;
   uniform float uPulse, uFlare, uTime;
-  varying vec3 vRest, vN, vW, vL; varying float vPart; varying vec2 vUv;
+  varying vec3 vRest, vN, vW, vL, vNL; varying float vPart; varying vec2 vUv;
   void main(){
     vec3 p = position;
     // mantle breathing: the mantle squeezes on each push, the rim flares on the refill
@@ -200,6 +202,7 @@ const VERT = /* glsl */`
     vec4 w = modelMatrix * vec4(p, 1.0);
     vW = w.xyz; vL = p;
     vN = normalize(mat3(modelMatrix) * normal);
+    vNL = normal;
     gl_Position = projectionMatrix * viewMatrix * w;
   }`;
 
@@ -208,7 +211,7 @@ const FRAG = /* glsl */`
   uniform vec3 uCamPos, uSunD, uFog, uTop, uDeepTint;
   uniform float uFogD, uTime, uTorch, uLook, uFin;
   uniform vec2 uEye;
-  varying vec3 vRest, vN, vW, vL; varying float vPart; varying vec2 vUv;
+  varying vec3 vRest, vN, vW, vL, vNL; varying float vPart; varying vec2 vUv;
 
   float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
   float n3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
@@ -216,8 +219,8 @@ const FRAG = /* glsl */`
                mix(mix(h3(i+vec3(0,0,1)), h3(i+vec3(1,0,1)), f.x), mix(h3(i+vec3(0,1,1)), h3(i+vec3(1,1,1)), f.x), f.y), f.z); }
   float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * n3(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
 
-  const vec3 RED = vec3(0.78, 0.06, 0.13);
-  const vec3 RED2 = vec3(0.98, 0.22, 0.30);
+  const vec3 RED = vec3(0.86, 0.09, 0.15);
+  const vec3 RED2 = vec3(0.99, 0.27, 0.32);
   const vec3 PALE = vec3(0.92, 0.86, 0.88);
   const vec3 LIMB = vec3(0.82, 0.22, 0.3);
 
@@ -251,14 +254,20 @@ const FRAG = /* glsl */`
       base *= 1.0 - groove * 0.7;
       base = mix(base, RED2 * 1.15, ridge * 0.5);
       // pale collar rim
-      float rim = 1.0 - smoothstep(0.012, 0.035, vUv.x * 1.0 + (m - 0.5) * 0.015);
-      if (part == ${P_MANTLE}) base = mix(base, PALE * 0.85, rim * 0.85);
-      if (part == ${P_HEAD}) { base = mix(base, base * vec3(1.0, 0.9, 0.95), 0.3); flecks *= 0.8; }
+      float rim = 1.0 - smoothstep(0.02, 0.1, vUv.x + (m - 0.5) * 0.035);
+      if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.02, rim * 0.92); flecks *= 1.0 - rim; }
+      if (part == ${P_HEAD}) {
+        base = mix(base, base * vec3(1.0, 0.9, 0.95), 0.3); flecks *= 0.8;
+        float de = length(vec2(vL.x + 0.08, vL.y - 0.024)) * step(0.05, abs(vL.z));
+        base = mix(base, vec3(0.8, 0.84, 0.84), smoothstep(0.008, 0.0, abs(de - 0.062)) * 0.35);  // faint silver rim
+        base *= 1.0 - 0.25 * smoothstep(0.075, 0.062, de);                                         // the socket is a little darker
+        flecks *= smoothstep(0.06, 0.1, de);
+      }
       if (part == ${P_FUNNEL}) base = mix(RED, vec3(0.5, 0.2, 0.25), 0.4);
     } else if (part == ${P_INNER}) {
       base = vec3(0.02, 0.035, 0.05);
-      float rim = 1.0 - smoothstep(0.0, 0.08, vUv.x);
-      base = mix(base, PALE * 0.8, rim);
+      float rim = 1.0 - smoothstep(0.0, 0.14, vUv.x);
+      base = mix(base, PALE * 1.0, rim);
       spec = 0.15;
     } else if (part == ${P_FIN}) {
       float w = max(1e-3, ${'finHalfGLSL'}(vL.x));
@@ -291,8 +300,8 @@ const FRAG = /* glsl */`
         float row = sin(ang * 6.2831853 * 2.0);
         float ring = abs(sin(s * 165.0 + step(0.0, row) * 1.57));
         float sock = (1.0 - smoothstep(0.55, 0.9, ring)) * inner;
-        base = mix(base, vec3(0.93, 0.93, 0.9), sock * 0.55);
-        base *= 1.0 - inner * 0.22 * smoothstep(0.85, 1.0, ring);
+        base = mix(base, vec3(0.9, 0.9, 0.88), sock * 0.25);
+        base *= 1.0 - inner * 0.12 * smoothstep(0.85, 1.0, ring);
         // a dark seam where the red back meets the pale face
         base *= 1.0 - 0.35 * exp(-pow((c - 0.15) / 0.12, 2.0));
         // white blotches on the back, pale toward the tip
@@ -321,18 +330,31 @@ const FRAG = /* glsl */`
       base = mix(vec3(0.86, 0.6, 0.64), vec3(0.97, 0.96, 0.93), smoothstep(0.0, 0.7, vRest.y));
       spec = 0.9; gloss = 60.0;
     } else { // eye
-      vec3 c = vec3(-0.08, 0.024, sign(vL.z) * 0.122);
+      vec3 c = vec3(-0.08, 0.024, sign(vL.z) * 0.114);
       vec3 d = normalize(vL - c);
       vec3 look = normalize(vec3(uEye.x * 0.6, uEye.y * 0.4, sign(vL.z)));
       float k = dot(d, look);
       // red lid -> silver ring -> green-grey iris -> big black pupil
       vec3 iris = mix(vec3(0.62, 0.7, 0.68), vec3(0.36, 0.44, 0.42), smoothstep(0.9, 0.95, k));
-      base = mix(RED * 0.6, vec3(0.62, 0.68, 0.7), smoothstep(0.5, 0.56, k));
-      base = mix(base, iris * 0.7, smoothstep(0.6, 0.66, k));
-      base = mix(base, vec3(0.01, 0.015, 0.02), smoothstep(0.86, 0.89, k));
+      base = mix(RED * 0.5, vec3(0.12, 0.15, 0.15), smoothstep(0.3, 0.42, k));          // red lid -> dark eye
+      base = mix(base, vec3(0.5, 0.56, 0.55), smoothstep(0.03, 0.0, abs(k - 0.6)) * 0.8); // thin silver ring
+      base = mix(base, vec3(0.2, 0.26, 0.25), smoothstep(0.62, 0.66, k));               // green-grey iris
+      base = mix(base, vec3(0.005, 0.01, 0.012), smoothstep(0.78, 0.82, k));          // big black pupil
       spec = 1.6; gloss = 140.0;
     }
 
+    float underK = 0.0;
+    // counter-shading: the underside is dark blue-black with only a red rim (the belly photos)
+    if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
+      vec3 nl = normalize(vNL + vec3(0.0, 1e-5, 0.0));
+      float ny = (part == ${P_MANTLE} || part == ${P_HEAD} || part == ${P_FUNNEL}) ? (vL.y - 0.01) / max(length(vL.yz - vec2(0.01, 0.0)), 1e-3) : nl.y;
+      float under = part == ${P_FIN} ? smoothstep(0.05, -0.15, dot(V, normalize(vN))) : smoothstep(0.3, -0.4, ny);
+      if (part == ${P_FIN}) under *= 1.0 - smoothstep(0.5, 0.85, clamp(abs(vL.z) / max(1e-3, finHalfGLSL(vL.x)), 0.0, 1.0));
+      if (part == ${P_ARM} || part == ${P_TENT}) under *= 0.85;
+      base = mix(base, vec3(0.025, 0.045, 0.055) + base * vec3(0.12, 0.05, 0.06), under * 0.95);
+      flecks *= 1.0 - under * 0.9;
+      underK = under;
+    }
     // white flecks are brighter and a bit glossy
     base = mix(base, PALE * 1.05, flecks * 0.8);
 
@@ -341,10 +363,10 @@ const FRAG = /* glsl */`
     float wrap = clamp((dot(N, L) + 0.35) / 1.35, 0.0, 1.0);
     float up = N.y * 0.5 + 0.5;
     vec3 amb = mix(uDeepTint * 1.6, uTop * 0.3 + vec3(0.12, 0.1, 0.1), up);
-    vec3 col = base * (amb * 0.8 + vec3(1.0, 0.96, 0.92) * wrap * 1.1);
+    vec3 col = base * (amb * 0.95 + vec3(1.0, 0.96, 0.92) * wrap * 1.25 + 0.12);   // the skin glows a little (the reference is luminous)
     // belly falls into a dark teal shadow
     float belly = smoothstep(0.1, -0.5, N.y);
-    col = mix(col, uDeepTint * 0.9 + base * 0.12, belly * 0.6);
+    col = mix(col, uDeepTint * 0.9 + base * 0.12, belly * 0.3);
 
     // specular + glitter: tiny specks that twinkle as the squid turns (the "shine specs")
     vec3 H = normalize(L + V);
@@ -358,7 +380,7 @@ const FRAG = /* glsl */`
 
     // soft rim of water light
     float fr = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-    col += uTop * fr * 0.35 * (part == ${P_FIN} ? 1.4 : (part == ${P_ARM} || part == ${P_TENT}) ? 0.25 : 1.0);
+    col += uTop * fr * 0.35 * (1.0 - underK * 0.7) * (part == ${P_FIN} ? 1.4 : (part == ${P_ARM} || part == ${P_TENT}) ? 0.25 : 1.0);
     // a little subsurface: thin parts glow red when lit from behind
     if (part == ${P_FIN} || part == ${P_ARM} || part == ${P_TENT}) col += base * pow(max(dot(-N, L), 0.0), 2.0) * 0.25;
 
@@ -525,7 +547,7 @@ export function createSquid() {
       const isT = L.kind === 'tent';
       const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
       // roots packed on the crown of the head (tentacles sit just inside the ventral arms)
-      const rootR = isT ? 0.024 : 0.052;
+      const rootR = isT ? 0.026 : 0.062;
       P[0].set(isT ? -0.25 : -0.262, ca * rootR * 0.9 + 0.012, sa * rootR);
       const rad = tA.set(0, ca, sa);
       const perp = tB.set(0, -sa, ca);
@@ -651,8 +673,8 @@ export function createSquid() {
         // one row of big teeth along the edge of the club
         const cu = (h.s - 0.7) / 0.3;
         hc.copy(hp).addScaledVector(hb, h.side * rW * 0.86).addScaledVector(hn, rH * 0.25);
-        hd.copy(hb).multiplyScalar(h.side).addScaledVector(ht, 0.8).addScaledVector(hn, 0.25).normalize();
-        size = 0.006 + 0.027 * Math.pow(Math.sin(Math.PI * Math.pow(cl(cu, 0, 1), 0.7)), 0.8);
+        hd.copy(hb).multiplyScalar(h.side).addScaledVector(ht, 0.42).addScaledVector(hn, 0.15).normalize();
+        size = 0.008 + 0.04 * Math.pow(Math.sin(Math.PI * Math.pow(cl(cu, 0, 1), 0.7)), 0.8);
         thick = size * 0.45;
       }
       hv.crossVectors(hd, ht).normalize();
@@ -692,7 +714,7 @@ export function createSquid() {
     const push = Q.cyc < 0.32 ? 1 : 0;
     Q.speed = lp(Q.speed, (Q.mode === 'idle' ? 0.12 : 0.42) + push * (0.35 + Q.jetE * 1.6) + Q.agit * 0.4, k1(dt, push ? 5 : 1.4));
     Q.surge = lp(Q.surge, push * 0.045 * (1 + Q.jetE * 1.5) + 0.012 * Math.max(0, Math.sin(Q.ph)), k1(dt, push ? 6 : 1.8));
-    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 0.65 : 0.42 + Q.agit * 0.3, k1(dt, 1.5));
+    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 0.6 : 0.36 + Q.agit * 0.3, k1(dt, 1.5));
     Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 0.85 : 0.6) * (1 - Q.jetE * 0.8) + Q.agit * 0.3, k1(dt, 2));
 
     // body attitude: fin first and upward; a slow drift so it never looks fixed
