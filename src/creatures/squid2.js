@@ -648,37 +648,29 @@ export function createSquid() {
         const w2 = Math.cos(TAU * (s * (isT ? 0.9 : 0.6)) - P2 * 0.7 + lp0 * 1.3);
         void wv;
         const ampA = (isT ? 2.4 : 0.6) * (0.15 + 0.85 * s * s) * (0.75 + Q.agit * 0.8 + (Q.mode === 'idle' ? 0.5 : 0));
-        // arms leave the crown nearly parallel, fan out slightly, then the tips curl a touch inward
-        const open = isT ? spread * (1.2 - s * 0.5) : spread * (1.05 - s * 0.45);   // the arms splay as a loose cone (video)
-        dir.set(-1, 0, 0)
-          .addScaledVector(rad, open)
-          .addScaledVector(perp, isT ? 0 : w1 * ampA * 0.16)
-          .addScaledVector(rad, (isT ? 0 : w2 * ampA * 0.1) + (isT ? 0 : -0.26 * s * (0.5 + 0.5 * Math.sin(Q.ph * 0.2 + L.ph))));
+        // each segment's heading is two angles: lat (sideways, around the crown) and out (away from / toward
+        // the body axis). Angles, unlike added vectors, can go past 90 degrees, so limbs can loop and hook.
+        let lat, out;
         if (!isT) {
-          // the arms move as one bundle (swim video): a shared slow wave rolls from the crown to the tips,
-          // each arm only slightly out of step with its neighbours; the tips roll inward together
-          const ai = L.ang / TAU;                                   // 0..1 around the crown
-          const tq = Q.t * 0.7, sp = Math.pow(s, 1.4);
-          const ph = tq - s * 4.0 + ai * 1.2;
-          dir.addScaledVector(perp, 0.8 * sp * Math.sin(ph));
-          dir.addScaledVector(rad, 0.6 * sp * Math.cos(ph * 0.9 + 0.7));
-          const curl = 0.35 + 0.25 * Math.sin(tq * 0.6 + ai * 0.8);  // breathing curl of the whole bundle
-          dir.addScaledVector(rad, -curl * ss(0.45, 1.0, s));
-          dir.y -= 0.08 * s;
+          // arms (swim video): fan wide like loose fingers, then each tip hooks back inward; the whole bundle
+          // rides one slow shared wave, neighbours only slightly out of step
+          const ai = L.ang / TAU, tq = Q.t * 0.7, sp = Math.pow(s, 1.3);
+          const ph = tq - s * 3.6 + ai * 1.2;
+          const curl = (1.0 + 0.45 * Math.sin(tq * 0.55 + ai * 2.0 + L.ph)) * ss(0.38, 1.0, s);
+          out = spread * (1.0 - 0.15 * s) - 1.9 * curl + 0.35 * sp * Math.cos(ph * 0.9 + 0.7);
+          lat = 0.7 * sp * Math.sin(ph) + 0.25 * Math.sin(L.ph * 2.3) * s + w1 * ampA * 0.12;
+        } else {
+          // tentacles (swim video): big loose loops and S-bends rolling slowly from the head to the club;
+          // both share the wave, a little out of step; the club flops over behind it
+          const free = ss(0.1, 0.35, s), tq = Q.t * 0.55, off = L.side * 0.4;
+          const A = free * (0.45 + 1.6 * s);
+          lat = L.side * 0.14 * free + A * Math.sin(tq - s * 4.0 + off);
+          out = spread * (1.2 - s * 0.5) - 0.05 * (1 - free) + A * 0.75 * Math.cos(tq * 0.73 - s * 3.0 + off * 0.6 + 1.3);
+          out += ss(0.78, 0.97, s) * 1.1 * Math.sin(tq * 1.1 - 2.4 + off);   // the club folds over
         }
-        if (isT) {
-          // soft, cohesive drift (new swim video): one long wave rolls slowly from the head to the club;
-          // both tentacles share it, offset a little, so they sway together like ribbons
-          const free = ss(0.12, 0.4, s);
-          const tq = Q.t * 0.55, off = L.side * 0.35;
-          const amp = free * (0.35 + 0.95 * s);
-          const ph1 = tq - s * 4.2 + off, ph2 = tq * 0.73 - s * 3.1 + off * 0.6 + 1.3;
-          dir.addScaledVector(perp, amp * Math.sin(ph1) + L.side * 0.12 * free);
-          dir.addScaledVector(rad, amp * 0.8 * Math.cos(ph2) - 0.05 * (1 - free));
-          // the club lags behind and folds over gently
-          const club = ss(0.7, 0.95, s);
-          dir.addScaledVector(rad, club * 0.5 * Math.sin(tq - 2.4 + off));
-        }
+        const co = Math.cos(out), so = Math.sin(out), cl2 = Math.cos(lat), sl = Math.sin(lat);
+        dir.set(-co * cl2, 0, 0).addScaledVector(perp, co * sl).addScaledVector(rad, so);
+        if (!isT) dir.y -= 0.06 * s;
         dir.normalize();
         P[i].copy(P[i - 1]).addScaledVector(dir, seg);
       }
