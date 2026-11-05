@@ -92,7 +92,7 @@ function mantlePoint(x, a, scaleR, out) {
   const sq = 1;
   const rk = ss(0.03, 0.2, x) * mantleZone;
   const keel = ss(0.04, 0.36, x);
-  const groove = (1 + 0.2 * keel * mantleZone * Math.exp(-(a * a) / 0.14))            // roof shape
+  const groove = (1 + 0.32 * keel * mantleZone * Math.exp(-Math.abs(a) / 0.32))   // sharp roof: a peaked, not round, profile            // roof shape
                * (1 + 0.15 * keel * Math.exp(-(a * a) / 0.006))                         // the raised rod on the midline
                * (1 - 0.06 * keel * Math.exp(-Math.pow(Math.abs(a) - 0.2, 2) / 0.004));   // a crease each side of the rod
   void rk;
