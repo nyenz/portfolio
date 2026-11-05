@@ -7,7 +7,7 @@ import { createParticles } from '../world/particles.js';
 import { createShafts } from '../world/shafts.js';
 import { createPost, LENS } from '../fx/post.js';
 import { quality, isTouch } from '../core/quality.js';
-import { createSquid } from '../creatures/squid.js';
+import { createSquid } from '../creatures/squid2.js';
 
 // Squid study page: the hero squid on its own, in open sunlit water, with free look-around.
 const cfg = quality.cfg;
@@ -23,13 +23,13 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.05, 400);
 const DEPTH_Y = -18;
 const target = new THREE.Vector3(0, DEPTH_Y, 0);
-camera.position.set(0.6, DEPTH_Y + 0.4, 7.5);
+camera.position.set(0.5, DEPTH_Y + 0.3, 6.2);
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.copy(target);
 controls.enableDamping = true; controls.dampingFactor = 0.06;
 controls.enablePan = false; controls.minDistance = 3; controls.maxDistance = 14;
-controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
+controls.autoRotate = !new URLSearchParams(location.search).has('still'); controls.autoRotateSpeed = 0.35;
 canvas.addEventListener('pointerdown', () => { controls.autoRotate = false; });
 
 const water = createWater();
@@ -72,7 +72,7 @@ let last = performance.now(), time = 0;
 renderer.setAnimationLoop((now) => {
   const dt = Math.min((now - last) / 1000, 1 / 20);
   last = now; time += dt;
-  updateEnv(120);
+  updateEnv(380);
   U.uTime.value = time;
   U.uPx.value = innerHeight * dpr / (2 * Math.tan((camera.fov * Math.PI) / 360));
   P.speed = Math.hypot(P.px - P.lx, P.py - P.ly) / Math.max(dt, 1e-3) / 900;
@@ -94,4 +94,13 @@ renderer.setAnimationLoop((now) => {
   LENS.uniforms.uTime.value = time;
   post.composer.render(dt);
 });
-window.__squid = { squid, camera, controls };
+window.__squid = { squid, camera, controls, target,
+  view(name) {
+    // fixed views to compare against the reference pictures
+    const q = squid.group.children[0].quaternion, d = new THREE.Vector3();
+    if (name === 'world') { camera.position.set(0.5, DEPTH_Y + 0.3, 6.2); controls.update(); return; }
+    const local = { top: [0.12, 1, 0], side: [0.05, 0.12, 1], hero: [0, 0.35, 1], belly: [0, -1, 0.2], front: [-1, 0.2, 0.3] }[name] || [0, 0, 1];
+    d.set(...local).normalize().applyQuaternion(q);
+    camera.position.copy(target).addScaledVector(d, name === 'hero' ? 7.5 : 5.2);
+    controls.update();
+  } };

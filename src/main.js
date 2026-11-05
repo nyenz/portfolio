@@ -21,7 +21,7 @@ import { createLoader } from './ui/loader.js';
 import { initHoverScramble, scramble } from './ui/scramble.js';
 import { createReactiveText } from './ui/reactiveText.js';
 import { createDossier } from './ui/dossier.js';
-import { createSquid } from './creatures/squid.js';
+import { createSquid } from './creatures/squid2.js';
 import { createPortrait } from './scenes/portrait.js';
 import { createJellyfish } from './scenes/jellyfish.js';
 import { createArchive } from './scenes/archive.js';
@@ -81,7 +81,7 @@ async function boot() {
 
   // ---- creatures ----
   const squid = createSquid();
-  squid.group.scale.setScalar(1.25);
+  squid.group.scale.setScalar(1.0);
   scene.add(squid.group);
   const squidAnchor = new THREE.Vector3();
   const portrait = createPortrait({ count: quality.name === 'high' ? 14000 : quality.name === 'med' ? 9000 : 5000, renderer });
@@ -168,7 +168,7 @@ async function boot() {
     squid.group.visible = heroOn;
     if (heroOn) {
       const narrow = innerWidth / innerHeight < 0.8;
-      squidAnchor.set(narrow ? -0.1 : 0.85, camera.position.y + (narrow ? 2.3 : -0.2), narrow ? -7.4 : -5.0);
+      squidAnchor.set(narrow ? 0.1 : 1.5, camera.position.y + (narrow ? 1.9 : -0.1), narrow ? -9.5 : -8.0);
       squidAnchor.x += camera.position.x;
       squid.update(dt, {
         anchor: squidAnchor, camera, idle: input.idle, pointerX: input.sx, pointerY: input.sy,
