@@ -44,9 +44,9 @@ function curve(tab, x) {
 export function finHalf(x) {
   const u = (x - 0.4) / 0.6;
   if (u <= 0 || u >= 1) return 0;
-  if (u < 0.32) return 0.275 * Math.pow(Math.sin((u / 0.32) * Math.PI / 2), 0.45);   // big rounded front lobes
+  if (u < 0.32) return 0.31 * Math.pow(Math.sin((u / 0.32) * Math.PI / 2), 0.42);   // big rounded front lobes
   const v = (u - 0.32) / 0.68;
-  return 0.275 * Math.pow(1 - v, 0.62);                                              // near-straight edges to the tip
+  return 0.31 * Math.pow(1 - v, 0.55);                                              // near-straight edges to the tip
 }
 
 /* --------------------------------------------------------------- geometry */
@@ -118,7 +118,7 @@ function buildBody() {
     const x = lp(0.07, -0.245, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
     // eye orbits: the sides swell where the eyes sit
     const orb = Math.exp(-Math.pow((x + 0.095) / 0.04, 2)) * Math.pow(Math.abs(Math.sin(a)), 1.5) * Math.exp(-Math.pow(Math.cos(a) - 0.15, 2) / 0.5);
-    o.set(x, Math.cos(a) * r * 1.1 + 0.012, Math.sin(a) * r * 0.9 * (1 + 0.3 * orb));
+    o.set(x, Math.cos(a) * r * 1.1 + 0.012, Math.sin(a) * r * 0.9 * (1 + 0.18 * orb));
   }, P_HEAD, true);
   // funnel: a short cone under the head, coming out of the collar
   B.grid(14, 18, (u, v, o) => {
@@ -132,9 +132,9 @@ function buildEyes() {
   const B = GeoBuilder();
   for (const side of [-1, 1]) {
     B.grid(18, 24, (u, v, o) => {
-      const th = u * Math.PI, ph = v * TAU, r = 0.056;
+      const th = u * Math.PI, ph = v * TAU, r = 0.068;
       // the eye looks sideways (local z), u=0 at the pupil
-      o.set(Math.sin(th) * Math.cos(ph) * r - 0.095, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.026, side * (0.08 + Math.cos(th) * r * 0.32));
+      o.set(Math.sin(th) * Math.cos(ph) * r - 0.095, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.026, side * (0.1 + Math.cos(th) * r * 0.28));
     }, P_EYE, side < 0);
   }
   return B.build();
@@ -285,7 +285,8 @@ const FRAG = /* glsl */`
         float de = length(vec2(vL.x + 0.095, vL.y - 0.026)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
         base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
         base *= 1.0 - 0.25 * smoothstep(0.062, 0.05, de);
-        base = mix(base, vec3(0.5, 0.58, 0.54), smoothstep(0.085, 0.055, de) * 0.55);   // silvery-green skin around the eye                                         // the socket is a little darker
+        float mot = smoothstep(0.4, 0.65, fbm(vec3(vL.x * 60.0, vL.y * 60.0, vL.z * 30.0)));
+        base = mix(base, mix(vec3(0.32, 0.46, 0.42), vec3(0.62, 0.72, 0.66), mot), smoothstep(0.11, 0.07, de) * 0.75);   // mottled silvery-green skin around the eye   // silvery-green skin around the eye                                         // the socket is a little darker
         flecks *= smoothstep(0.05, 0.08, de);
       }
       if (part == ${P_FUNNEL}) base = mix(RED, vec3(0.5, 0.2, 0.25), 0.4);
@@ -306,11 +307,13 @@ const FRAG = /* glsl */`
       float vband = exp(-pow((abs(vL.z) - 0.05 * (1.0 - smoothstep(0.45, 1.0, vL.x))) / 0.016, 2.0)) * smoothstep(0.42, 0.5, vL.x);
       base *= 1.0 - vband * 0.45;                                          // the dark V on the fin's midline
       // pale, see-through margin
-      float margin = smoothstep(0.55, 0.9, e + (m - 0.5) * 0.22);
+      float rag = fbm(vec3(vL.x * 40.0, vL.z * 6.0, 2.0));
+      float margin = smoothstep(0.5, 0.86, e + (m - 0.5) * 0.3 + (rag - 0.5) * 0.25);
+      base *= 1.0 - 0.75 * exp(-pow(vL.z / 0.007, 2.0)) * smoothstep(0.5, 0.6, vL.x) * (1.0 - smoothstep(0.88, 0.98, vL.x));   // the dark slit
       base = mix(base, PALE * 1.08, margin * 0.92);
       float blot = smoothstep(0.68, 0.76, fbm(q * vec3(8.0, 8.0, 12.0) + 9.0));
       flecks = blot * 0.7 * (1.0 - margin);
-      alpha = mix(1.0, 0.5, margin) * (1.0 - smoothstep(0.985, 1.0, e) * 0.6);
+      alpha = mix(1.0, 0.55, margin) * (1.0 - smoothstep(0.9 + rag * 0.08, 0.99, e));   // ragged, see-through edge
       spec = 0.4;
     } else if (part == ${P_ARM} || part == ${P_TENT}) {
       float s = vRest.x, ang = vRest.y, f = vUv.x;  // distance along, angle around (0 = inner face), fraction along
@@ -319,22 +322,13 @@ const FRAG = /* glsl */`
       float outer = smoothstep(0.2, -0.7, c);         // aboral back of the arm
       float m = fbm(vec3(s * 18.0, ang * 4.0, vRest.z * 3.1));
       if (part == ${P_ARM}) {
-        vec3 back = mix(RED, RED2, smoothstep(0.35, 0.7, m));
-        back = mix(back, vec3(0.9, 0.62, 0.66), smoothstep(0.5, 0.75, fbm(vec3(s * 22.0, ang * 5.0, vRest.z * 4.0 + 8.0))) * 0.6);
-        vec3 face = vec3(0.74, 0.8, 0.77);                          // grey-green oral face
-        base = mix(face, back, smoothstep(-0.55, 0.05, -c) * 0.9 + 0.1);   // red everywhere but a narrow pale inner face
-        // two staggered rows of hook sockets along the oral face
-        float row = sin(ang * 6.2831853 * 2.0);
-        float ring = abs(sin(s * 165.0 + step(0.0, row) * 1.57));
-        float sock = (1.0 - smoothstep(0.55, 0.9, ring)) * inner;
-        base = mix(base, vec3(0.9, 0.9, 0.88), sock * 0.25);
-        base *= 1.0 - inner * 0.12 * smoothstep(0.85, 1.0, ring);
-        // a dark seam where the red back meets the pale face
-        base *= 1.0 - 0.35 * exp(-pow((c - 0.15) / 0.12, 2.0));
-        // white blotches on the back, pale toward the tip
-        float blot = smoothstep(0.56, 0.68, fbm(vec3(s * 44.0, ang * 9.0, vRest.z * 7.0)));
-        flecks = blot * (0.4 + outer * 0.6);
-        base = mix(base, vec3(0.88, 0.8, 0.82), smoothstep(0.7, 1.0, f) * 0.7);
+        // arm close-ups: pale white / grey-teal tubes with patchy red-pink mottling, red only near the head
+        vec3 pale = mix(vec3(0.55, 0.62, 0.61), vec3(0.3, 0.42, 0.44), smoothstep(0.35, 0.7, m));
+        float mott = smoothstep(0.5, 0.7, fbm(vec3(s * 26.0, ang * 6.0, vRest.z * 4.0 + 8.0)));
+        base = mix(pale, vec3(0.7, 0.26, 0.32), mott * (0.45 + 0.4 * outer));
+        base = mix(base, RED2 * 0.9, (1.0 - smoothstep(0.03, 0.2, f)) * 0.85);
+        base *= 1.0 - inner * 0.25;                                          // the sucker face is a little darker
+        flecks = smoothstep(0.62, 0.72, fbm(vec3(s * 50.0, ang * 9.0, vRest.z * 7.0))) * 0.5;
       } else {
         // stalk: crisp red / white bands, red near the base; club: pale with pink blotches
         float bandN = n3(vec3(floor(s * 52.0), vRest.z, 1.0));
@@ -354,24 +348,26 @@ const FRAG = /* glsl */`
       spec = 0.32; gloss = 30.0;
     } else if (part == ${P_HOOK}) {
       // hook: bone white, a little pink at the root, glossy
-      base = mix(vec3(0.86, 0.6, 0.64), vec3(0.97, 0.96, 0.93), smoothstep(0.0, 0.7, vRest.y));
+      base = mix(vec3(0.45, 0.55, 0.56), vec3(0.82, 0.86, 0.85), smoothstep(0.0, 0.8, vRest.y));
       spec = 0.5; gloss = 50.0;
     } else { // eye
-      vec3 c = vec3(-0.095, 0.026, sign(vL.z) * 0.08);
-      vec3 d = normalize(vL - c);
-      vec3 look = normalize(vec3(uEye.x * 0.6, uEye.y * 0.4, sign(vL.z)));
+      vec3 c = vec3(-0.095, 0.026, sign(vL.z) * 0.1);
+      vec3 d = normalize((vL - c) / vec3(0.068, 0.0646, 0.019));   // undo the eyeball's flattening
+      vec3 look = normalize(vec3(uEye.x * 0.25, uEye.y * 0.18, sign(vL.z)));
       float k = dot(d, look);
       // red lid -> silver ring -> green-grey iris -> big black pupil
       vec3 iris = mix(vec3(0.62, 0.7, 0.68), vec3(0.36, 0.44, 0.42), smoothstep(0.9, 0.95, k));
       vec3 tng = normalize(cross(look, vec3(0.0, 1.0, 0.0)));
       float ang = atan(dot(d, cross(look, tng)), dot(d, tng));
-      float fib = 0.5 + 0.5 * sin(ang * 46.0 + n3(vec3(ang * 6.0, k * 9.0, 1.0)) * 4.0);
+      float fib = n3(vec3(ang * 9.0, k * 30.0, 1.0)) * 0.6 + 0.2 * sin(ang * 46.0 + k * 20.0);
       vec3 lid = mix(vec3(0.3, 0.38, 0.34), vec3(0.55, 0.22, 0.24), smoothstep(0.55, 0.7, n3(d * 18.0)));   // mottled green-grey and red lid
       vec3 irisC = mix(vec3(0.16, 0.3, 0.32), vec3(0.38, 0.55, 0.56), fib * 0.6);
       irisC = mix(irisC, vec3(0.7, 0.82, 0.8), smoothstep(0.03, 0.0, abs(k - 0.56)) * 0.8 + smoothstep(0.03, 0.0, abs(k - 0.8)) * 0.4);   // concentric rings
-      base = mix(lid, vec3(0.08, 0.1, 0.1), smoothstep(0.3, 0.4, k));              // dark rim around the iris
-      base = mix(base, irisC, smoothstep(0.45, 0.52, k));                           // broad silver-teal iris
-      base = mix(base, vec3(0.004, 0.006, 0.008), smoothstep(0.86, 0.885, k));     // black pupil
+      vec3 skin = mix(RED * 0.8, vec3(0.34, 0.48, 0.44), smoothstep(0.4, 0.65, n3(d * 22.0)));   // the eyeball's edge is covered by mottled skin
+      base = mix(skin, vec3(0.1, 0.2, 0.2), smoothstep(0.5, 0.56, k));           // dark rim around the iris
+      base = mix(base, irisC, smoothstep(0.6, 0.66, k));                            // silver-teal iris
+      base = mix(base, vec3(0.002, 0.003, 0.004), smoothstep(0.84, 0.86, k));
+      if (k > 0.86) spec = 0.6;      // black pupil
       spec = 2.2; gloss = 180.0;
     }
 
@@ -380,10 +376,10 @@ const FRAG = /* glsl */`
     if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
       vec3 nl = normalize(vNL + vec3(0.0, 1e-5, 0.0));
       float ny = (part == ${P_MANTLE} || part == ${P_HEAD} || part == ${P_FUNNEL}) ? (vL.y - 0.01) / max(length(vL.yz - vec2(0.01, 0.0)), 1e-3) : nl.y;
-      float under = part == ${P_FIN} ? smoothstep(0.05, -0.15, dot(V, normalize(vN))) : smoothstep(0.3, -0.4, ny);
+      float under = part == ${P_FIN} ? smoothstep(0.05, -0.15, dot(V, normalize(vN))) : smoothstep(-0.05, -0.65, ny);
       if (part == ${P_FIN}) under *= 1.0 - smoothstep(0.5, 0.85, clamp(abs(vL.z) / max(1e-3, finHalfGLSL(vL.x)), 0.0, 1.0));
       if (part == ${P_ARM} || part == ${P_TENT}) under *= 0.85;
-      base = mix(base, vec3(0.025, 0.07, 0.09) + base * vec3(0.06, 0.02, 0.03), under * 0.95);
+      base = mix(base, vec3(0.025, 0.07, 0.09) + base * vec3(0.12, 0.04, 0.05), under * 0.82);
       flecks *= 1.0 - under * 0.9;
       underK = under;
     }
@@ -402,7 +398,7 @@ const FRAG = /* glsl */`
 
     // specular + glitter: tiny specks that twinkle as the squid turns (the "shine specs")
     vec3 H = normalize(L + V);
-    float sp = pow(max(dot(N, H), 0.0), gloss) * spec * 1.4 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1;
+    float sp = pow(max(dot(N, H), 0.0), gloss) * spec * 1.4 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1 * (part == ${P_EYE} ? 0.0 : 1.0);
     float glit = 0.0;
     if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
       float g = n3(q * 140.0 + vec3(0.0, 0.0, floor(dot(V, vec3(3.1, 2.3, 1.7)) * 6.0)));
@@ -431,9 +427,9 @@ const FIN_GLSL = /* glsl */`
   float finHalfGLSL(float x){
     float u = (x - 0.4) / 0.6;
     if (u <= 0.0 || u >= 1.0) return 0.0;
-    if (u < 0.32) return 0.275 * pow(sin((u / 0.32) * 1.5707963), 0.45);
+    if (u < 0.32) return 0.31 * pow(sin((u / 0.32) * 1.5707963), 0.42);
     float v = (u - 0.32) / 0.68;
-    return 0.275 * pow(max(1.0 - v, 0.0), 0.62);
+    return 0.31 * pow(max(1.0 - v, 0.0), 0.55);
   }`;
 
 /* ----------------------------------------------------------------- squid */
@@ -470,10 +466,10 @@ export function createSquid() {
   for (let i = 0; i < ARMN; i++) {
     const ang = ((i + 0.5) / ARMN) * TAU;          // around the crown, 0 = top
     const pair = Math.min(i, ARMN - 1 - i);         // 0 top .. 3 bottom
-    const len = [0.54, 0.6, 0.68, 0.63][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
-    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.02, r1: 0.0012, ph: i * 1.7 });
+    const len = [0.68, 0.76, 0.86, 0.8][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
+    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.026, r1: 0.0015, ph: i * 1.7 });
   }
-  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 1.75, n: 180, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
+  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 2.2, n: 200, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
   const limbMesh = new THREE.Mesh(limbs.geo, mat);
   limbMesh.frustumCulled = false; finMesh.frustumCulled = false;
@@ -488,7 +484,7 @@ export function createSquid() {
         while (s < 0.94) {
           hookList.push({ li, s, side, len: L.len, arm: true, k: 0.8 + Math.random() * 0.35 });
           const w = section(L, s).r * 1.08;
-          s += Math.max(0.0045, w * (1.05 + Math.random() * 0.25)) / L.len;   // about one tooth per arm width
+          s += Math.max(0.005, w * (1.5 + Math.random() * 0.3)) / L.len;   // bead spacing
         }
       }
     } else {
@@ -541,10 +537,10 @@ export function createSquid() {
         // the fin beats up and down in a wave running from front to tip; lobes lead
         const wave = Math.sin(ph - x * 9.0) + 0.35 * Math.sin(2.0 * ph - x * 14.0 + 1.0);   // a strong wave runs from the lobes to the tip
         const fold = Q.jetE * 0.9 + Q.pulse * 0.06;    // folds down along the body during a push
-        const lift = (wave * amp * 0.26 * Math.pow(e, 1.2) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
+        const lift = (wave * amp * 0.06 * Math.pow(e, 1.2) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
         // a soft cup across the fin (edges slightly up when relaxed)
         const lobe = (1 - ss(0.5, 0.78, x)) * e * e;        // the front lobes cup and open with the beat
-        const cup = 0.01 * e * e * (1 - Q.pulse) + 0.06 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
+        const cup = 0.01 * e * e * (1 - Q.pulse) + 0.025 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
         // the tip flicks a little
         const tip = Math.sin(ph - 6.5) * 0.012 * ss(0.85, 1, x) * amp;
         const scal = 1 + 0.035 * Math.sin(x * 95 + ph * 0.5) * ss(0.75, 1, e);   // ruffled, scalloped margin
@@ -604,6 +600,10 @@ export function createSquid() {
           .addScaledVector(perp, w1 * ampA * 0.16)
           .addScaledVector(rad, w2 * ampA * 0.1 + (isT ? 0 : -0.26 * s * (0.5 + 0.5 * Math.sin(Q.ph * 0.2 + L.ph))));
         if (!isT) {
+          // each arm writhes on its own slow rhythm: bends, loops and curls (new swim video)
+          const tq = Q.t, sp = Math.pow(s, 1.25);
+          dir.addScaledVector(perp, 1.25 * sp * Math.sin(tq * 0.75 + L.ph * 2.1 + s * 2.6));
+          dir.addScaledVector(rad, 0.95 * sp * Math.cos(tq * 0.6 + L.ph * 1.3 - s * 3.2));
           dir.y -= 0.1 * s;                                                     // the bundle droops toward the belly
           dir.addScaledVector(perp, 0.14 * Math.sin(L.ph * 2.3) * s);          // each arm bends its own way
           dir.addScaledVector(rad, -0.18 * ss(0.55, 1.0, s));                   // tips curl inward
@@ -614,6 +614,9 @@ export function createSquid() {
           dir.addScaledVector(perp, L.side * (0.26 + 0.34 * Math.sin(Q.ph * 0.22 + L.ph)) * free);          // the two stalks drift apart and back together
           dir.addScaledVector(rad, 0.55 * Math.sin(Q.ph * 0.38 - s * 3.5 + L.ph) * s * free);          // clubs swing slowly, behind the beat
           dir.addScaledVector(rad, -0.06 * (1 - free));
+          // long lazy S-curves travelling down the stalk; the clubs fold and swing
+          dir.addScaledVector(perp, 0.55 * free * s * Math.sin(Q.t * 0.5 + L.ph * 1.7 - s * 4.5));
+          dir.addScaledVector(rad, 0.45 * free * s * Math.cos(Q.t * 0.42 + L.ph - s * 3.8));
         }
         dir.normalize();
         P[i].copy(P[i - 1]).addScaledVector(dir, seg);
@@ -698,10 +701,11 @@ export function createSquid() {
       if (h.arm) {
         // two rows on the edges of the inner face; biggest in the middle of the arm
         // two rows on the edges of the flat inner face; hooked toward the tip like saw teeth
-        hc.copy(hp).addScaledVector(hn, rH * 0.5).addScaledVector(hb, h.side * rW * 0.78);
-        hd.copy(hb).multiplyScalar(h.side * 0.62).addScaledVector(hn, 0.5).addScaledVector(ht, 0.75).normalize();
-        size = (0.002 + rW * 0.62) * (0.6 + 0.4 * Math.sin(Math.PI * cl((h.s - 0.02) / 0.9, 0, 1))) * h.k;
-        thick = size * 0.5;
+        // round sucker beads in two rows on the inner face (close-ups), standing out on short stalks
+        hc.copy(hp).addScaledVector(hn, rH * 0.82).addScaledVector(hb, h.side * rW * 0.42);
+        hd.copy(hn).addScaledVector(hb, h.side * 0.35).normalize();
+        size = (0.002 + rW * 0.5) * (0.65 + 0.35 * Math.sin(Math.PI * cl((h.s - 0.02) / 0.9, 0, 1))) * h.k;
+        thick = size * 1.6;
       } else {
         // one row of big teeth along the edge of the club
         const cu = (h.s - 0.7) / 0.3;
@@ -711,14 +715,15 @@ export function createSquid() {
         thick = size * 0.45;
       }
       hv.crossVectors(hd, ht).normalize();
-      const o = k * 15, half = size * (h.arm ? 0.5 : 0.45);
+      const o = k * 15, half = size * (h.arm ? 0.8 : 0.45);
       // base: two points along the limb, two across (thin blade)
       const put = (n, x, y, z) => { HP[o + n * 3] = x; HP[o + n * 3 + 1] = y; HP[o + n * 3 + 2] = z; };
       put(0, hc.x - ht.x * half, hc.y - ht.y * half, hc.z - ht.z * half);
       put(1, hc.x - hv.x * thick * 0.5, hc.y - hv.y * thick * 0.5, hc.z - hv.z * thick * 0.5);
       put(2, hc.x + ht.x * half, hc.y + ht.y * half, hc.z + ht.z * half);
       put(3, hc.x + hv.x * thick * 0.5, hc.y + hv.y * thick * 0.5, hc.z + hv.z * thick * 0.5);
-      put(4, hc.x + hd.x * size, hc.y + hd.y * size, hc.z + hd.z * size);
+      const tk = h.arm ? size * 0.38 : size;
+      put(4, hc.x + hd.x * tk, hc.y + hd.y * tk, hc.z + hd.z * tk);
       const nrm = (n, x, y, z) => { HN[o + n * 3] = x; HN[o + n * 3 + 1] = y; HN[o + n * 3 + 2] = z; };
       nrm(0, -ht.x, -ht.y, -ht.z); nrm(1, -hv.x, -hv.y, -hv.z); nrm(2, ht.x, ht.y, ht.z); nrm(3, hv.x, hv.y, hv.z); nrm(4, hd.x, hd.y, hd.z);
     });
@@ -775,7 +780,7 @@ export function createSquid() {
 
   // travel direction: local +X points up-right, slightly toward the camera; dorsal side faces the viewer
   {
-    const fwd = new THREE.Vector3(0.72, 0.68, 0.08).normalize();
+    const fwd = new THREE.Vector3(0.84, 0.52, 0.1).normalize();
     const up = new THREE.Vector3(-0.1, 0.05, 1).normalize();   // dorsal (+Y local) faces the camera
     const side = new THREE.Vector3().crossVectors(fwd, up).normalize();
     up.crossVectors(side, fwd).normalize();
