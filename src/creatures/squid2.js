@@ -260,8 +260,10 @@ const FRAG = /* glsl */`
       blot = max(blot, smoothstep(0.5, 0.62, fbm(q * vec3(4.0, 22.0, 22.0) + 17.0)) * (1.0 - smoothstep(0.02, 0.12, vUv.x)) * float(part == ${P_MANTLE}));
       // sharp white specks of many sizes, stretched along the body, clustered in patches
       float cl1 = smoothstep(0.4, 0.68, fbm(q * vec3(3.0, 6.0, 6.0) + 5.0));
-      float sp1 = smoothstep(0.62, 0.67, fbm(q * vec3(9.0, 34.0, 34.0) + 2.0));            // irregular patches
-      float sp2 = smoothstep(0.84, 0.87, n3(q * vec3(30.0, 110.0, 110.0))) * smoothstep(0.45, 0.7, fbm(q * 7.0 + 1.0));
+      float fl = fbm(q * vec3(14.0, 44.0, 44.0) + 2.0) + 0.35 * (n3(q * vec3(60.0, 200.0, 200.0)) - 0.5);
+      float sp1 = smoothstep(0.63, 0.645, fl);                                           // hard-edged, ragged flakes            // irregular patches
+      float scr = abs(fract(dot(q, vec3(6.0, 31.0, 17.0)) + n3(q * 20.0) * 0.6) - 0.5);
+      float sp2 = smoothstep(0.03, 0.0, scr) * smoothstep(0.55, 0.75, fbm(q * 9.0 + 1.0));   // thin scratches
       float fleck = max(sp1, sp2 * 0.9) * (0.35 + 0.65 * cl1);
       float dorsal = smoothstep(-0.05, 0.08, vL.y);
       flecks = clamp(blot * 0.85 + fleck * (0.7 + 0.3 * dorsal), 0.0, 1.0);
