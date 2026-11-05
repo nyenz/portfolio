@@ -27,8 +27,8 @@ const P_MANTLE = 0, P_INNER = 1, P_HEAD = 2, P_FIN = 3, P_ARM = 4, P_TENT = 5, P
 
 /* ------------------------------------------------------------------ shape */
 // mantle half-width along the body (x = 0 at the collar rim)
-const MANTLE = [[-0.04, 0.254], [-0.004, 0.252], [0.05, 0.246], [0.13, 0.226], [0.21, 0.194], [0.28, 0.154], [0.33, 0.116], [0.37, 0.08], [0.4, 0.05], [0.45, 0.029], [0.6, 0.021], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
-const HEAD = [[0.07, 0.112], [0.02, 0.122], [-0.03, 0.132], [-0.08, 0.13], [-0.13, 0.116], [-0.18, 0.1], [-0.225, 0.088], [-0.262, 0.082], [-0.286, 0.068], [-0.3, 0.001]].reverse();   // ascending x for curve()
+const MANTLE = [[-0.04, 0.16], [0.0, 0.166], [0.05, 0.182], [0.11, 0.193], [0.17, 0.192], [0.22, 0.182], [0.27, 0.166], [0.31, 0.149], [0.35, 0.128], [0.39, 0.1], [0.42, 0.073], [0.45, 0.046], [0.5, 0.03], [0.6, 0.022], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
+const HEAD = [[0.07, 0.075], [0.03, 0.08], [-0.02, 0.086], [-0.07, 0.09], [-0.11, 0.084], [-0.145, 0.074], [-0.175, 0.066], [-0.2, 0.058], [-0.215, 0.04], [-0.222, 0.001]].reverse();   // ascending x for curve()
 function curve(tab, x) {
   // Catmull-Rom through the profile points (smooth, no kinks -> no shading bands)
   if (x <= tab[0][0]) return tab[0][1];
@@ -42,11 +42,11 @@ function curve(tab, x) {
 }
 // fin half-width: rounded front lobes, straight-ish edges to a sharp tip
 export function finHalf(x) {
-  const u = (x - 0.372) / 0.628;
+  const u = (x - 0.4) / 0.6;
   if (u <= 0 || u >= 1) return 0;
-  if (u < 0.34) return 0.262 * Math.pow(Math.sin((u / 0.34) * Math.PI / 2), 0.38);
-  const v = (u - 0.34) / 0.66;
-  return 0.262 * Math.pow(Math.max(1 - Math.pow(v, 1.7), 0), 0.8);
+  if (u < 0.3) return 0.226 * Math.pow(Math.sin((u / 0.3) * Math.PI / 2), 0.5);   // rounded front lobes
+  const v = (u - 0.3) / 0.7;
+  return 0.226 * Math.pow(1 - v, 0.6);                                              // near-straight edges to the tip
 }
 
 /* --------------------------------------------------------------- geometry */
@@ -82,22 +82,24 @@ function GeoBuilder() {
 function mantlePoint(x, a, scaleR, out) {
   const r = curve(MANTLE, x) * scaleR;
   const mantleZone = 1 - ss(0.36, 0.44, x);
-  const hRatio = lp(0.78, lp(0.64, 1.02, ss(-0.02, 0.17, x)), mantleZone);   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
+  const hRatio = lp(0.78, 1.0 + 0.14 * Math.exp(-Math.pow((x - 0.2) / 0.14, 2)), mantleZone);   // deepest mid-mantle (side photo)   // round at the collar, deeper than wide toward the rear (side photo)   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
   const ca = Math.cos(a), sa = Math.sin(a);
-  const sq = 1 + 0.06 * Math.pow(Math.abs(Math.sin(2 * a)), 1.5) * mantleZone; // squarer shoulders
-  const groove = 1 - (0.06 + 0.18 * (1 - mantleZone)) * Math.exp(-(a * a) / 0.018) * ss(0.02, 0.12, x);
-  const ventralFlat = 1 - 0.06 * Math.exp(-((Math.abs(a) - Math.PI) ** 2) / 0.4) * mantleZone;
+  const sq = 1;
+  const rk = ss(0.03, 0.2, x) * mantleZone;
+  const groove = 1 + 0.07 * rk * Math.exp(-(a * a) / 0.006) - 0.035 * rk * Math.exp(-Math.pow(Math.abs(a) - 0.2, 2) / 0.006) - 0.18 * (1 - mantleZone) * Math.exp(-(a * a) / 0.018);
+  const ventralFlat = 1;
   const rr = r * sq * groove * ventralFlat;
+  const yAsym = lp(1, lp(0.88, 1.18, (1 - ca) / 2) , mantleZone * (1 - ss(0.3, 0.42, x) * 0.6));   // flatter back, deep rounded belly
   // the body rides slightly high behind the mantle so the fin sits on the back
   const lift = 0.02 * ss(0.3, 0.5, x);
-  return out.set(x, ca * rr * hRatio + lift, sa * rr);
+  return out.set(x, ca * rr * hRatio * yAsym + lift - 0.012 * mantleZone, sa * rr);
 }
 
 function buildBody() {
   const B = GeoBuilder();
   const NA = 56;
   // outer mantle + tail rod (angle a: 0 = top)
-  const rimX = (a) => -0.03 + 0.075 * (1 - Math.cos(a)) / 2;   // the back of the collar reaches forward over the head; the belly side is cut back
+  const rimX = (a) => -0.04 + 0.11 * Math.pow((1 - Math.cos(a)) / 2, 1.3);   // the back of the collar reaches forward over the head; the belly side is cut back
   B.grid(110, NA, (u, v, o) => { const a = (v - 0.5) * TAU; const x = lp(rimX(a), 1.0, Math.pow(u, 1.15)); mantlePoint(x, a, 1, o); }, P_MANTLE, false);
   // inner wall of the collar opening (dark), slightly inside the rim
   // rolled lip: a half-round from the outer skin to the inner wall
@@ -105,13 +107,13 @@ function buildBody() {
   B.grid(16, NA, (u, v, o) => { const x = lp(rimX((v - 0.5) * TAU), 0.22, u); mantlePoint(x, (v - 0.5) * TAU, 0.91 * (1 - u * 0.25), o); }, P_INNER, true);
   // head (neck hidden inside the collar, bulge, crown where the arms grow)
   B.grid(40, 40, (u, v, o) => {
-    const x = lp(0.07, -0.3, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
-    o.set(x, Math.cos(a) * r * 0.86 + 0.045 * ss(-0.2, 0.06, x) - 0.005, Math.sin(a) * r * (1 - 0.1 * ss(-0.15, -0.29, x)));
+    const x = lp(0.07, -0.222, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
+    o.set(x, Math.cos(a) * r * 1.18 + 0.012, Math.sin(a) * r * 0.92);   // deeper than wide (side vs top photos)
   }, P_HEAD, true);
   // funnel: a short cone under the head, coming out of the collar
   B.grid(8, 14, (u, v, o) => {
     const x = lp(0.02, -0.085, u), r = lp(0.03, 0.017, u), a = (v - 0.5) * TAU;
-    o.set(x, -0.06 + Math.cos(a) * r * 0.8 + u * 0.012, Math.sin(a) * r);
+    o.set(x, -0.088 + Math.cos(a) * r * 0.8 + u * 0.012, Math.sin(a) * r);
   }, P_FUNNEL, true);
   return B.build();
 }
@@ -120,9 +122,9 @@ function buildEyes() {
   const B = GeoBuilder();
   for (const side of [-1, 1]) {
     B.grid(18, 24, (u, v, o) => {
-      const th = u * Math.PI, ph = v * TAU, r = 0.064;
+      const th = u * Math.PI, ph = v * TAU, r = 0.05;
       // the eye looks sideways (local z), u=0 at the pupil
-      o.set(Math.sin(th) * Math.cos(ph) * r - 0.08, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.024, side * (0.114 + Math.cos(th) * r * 0.5));
+      o.set(Math.sin(th) * Math.cos(ph) * r - 0.075, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.022, side * (0.07 + Math.cos(th) * r * 0.55));
     }, P_EYE, side < 0);
   }
   return B.build();
@@ -136,7 +138,7 @@ function buildFin() {
     B.grid(NX, NZ, (u, v, o) => {
       // rows run from the midline (v=0) to the edge (v=1); the front of each row moves forward
       // toward the edge so the lobes overhang the waist like the reference's heart shape
-      const x0 = 0.43 - 0.055 * Math.pow(v, 1.4);
+      const x0 = 0.402;
       const x = lp(x0, 1.0, u), w = finHalf(x);
       o.set(x, 0, side * (0.012 + v * Math.max(w - 0.012, 0)));
     }, P_FIN, side > 0);
@@ -244,8 +246,9 @@ const FRAG = /* glsl */`
       float m = fbm(q * vec3(7.0, 9.0, 9.0));
       base = mix(RED, RED2, smoothstep(0.35, 0.75, m));
       // pale blotches and fine white flecks (the reference has lots of them on the back)
-      float blot = smoothstep(0.55, 0.68, fbm(q * vec3(7.0, 18.0, 18.0) + 3.0)) * (0.5 + 0.5 * smoothstep(0.4, 0.7, fbm(q * 3.0 + 11.0)));
-      float fleck = smoothstep(0.8, 0.88, n3(q * vec3(30.0, 70.0, 70.0))) * smoothstep(0.35, 0.6, fbm(q * 4.0 + 5.0));
+      float blot = smoothstep(0.55, 0.66, fbm(q * vec3(5.0, 16.0, 16.0) + 3.0)) * (0.35 + 0.65 * smoothstep(0.35, 0.7, fbm(q * 2.5 + 11.0)));
+      blot = max(blot, smoothstep(0.5, 0.62, fbm(q * vec3(4.0, 22.0, 22.0) + 17.0)) * (1.0 - smoothstep(0.02, 0.12, vUv.x)) * float(part == ${P_MANTLE}));
+      float fleck = smoothstep(0.86, 0.92, n3(q * vec3(22.0, 90.0, 60.0))) * smoothstep(0.45, 0.7, fbm(q * 4.0 + 5.0));
       float dorsal = smoothstep(-0.05, 0.08, vL.y);
       flecks = clamp(blot * 0.75 + fleck * (0.55 + 0.45 * dorsal), 0.0, 1.0);
       // dark midline groove
@@ -258,10 +261,10 @@ const FRAG = /* glsl */`
       if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.02, rim * 0.92); flecks *= 1.0 - rim; }
       if (part == ${P_HEAD}) {
         base = mix(base, base * vec3(1.0, 0.9, 0.95), 0.3); flecks *= 0.8;
-        float de = length(vec2(vL.x + 0.08, vL.y - 0.024)) * step(0.05, abs(vL.z));
-        base = mix(base, vec3(0.8, 0.84, 0.84), smoothstep(0.008, 0.0, abs(de - 0.062)) * 0.35);  // faint silver rim
-        base *= 1.0 - 0.25 * smoothstep(0.075, 0.062, de);                                         // the socket is a little darker
-        flecks *= smoothstep(0.06, 0.1, de);
+        float de = length(vec2(vL.x + 0.075, vL.y - 0.022)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
+        base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
+        base *= 1.0 - 0.25 * smoothstep(0.062, 0.05, de);                                         // the socket is a little darker
+        flecks *= smoothstep(0.05, 0.08, de);
       }
       if (part == ${P_FUNNEL}) base = mix(RED, vec3(0.5, 0.2, 0.25), 0.4);
     } else if (part == ${P_INNER}) {
@@ -330,15 +333,15 @@ const FRAG = /* glsl */`
       base = mix(vec3(0.86, 0.6, 0.64), vec3(0.97, 0.96, 0.93), smoothstep(0.0, 0.7, vRest.y));
       spec = 0.9; gloss = 60.0;
     } else { // eye
-      vec3 c = vec3(-0.08, 0.024, sign(vL.z) * 0.114);
+      vec3 c = vec3(-0.075, 0.022, sign(vL.z) * 0.07);
       vec3 d = normalize(vL - c);
       vec3 look = normalize(vec3(uEye.x * 0.6, uEye.y * 0.4, sign(vL.z)));
       float k = dot(d, look);
       // red lid -> silver ring -> green-grey iris -> big black pupil
       vec3 iris = mix(vec3(0.62, 0.7, 0.68), vec3(0.36, 0.44, 0.42), smoothstep(0.9, 0.95, k));
-      base = mix(RED * 0.5, vec3(0.12, 0.15, 0.15), smoothstep(0.3, 0.42, k));          // red lid -> dark eye
-      base = mix(base, vec3(0.5, 0.56, 0.55), smoothstep(0.03, 0.0, abs(k - 0.6)) * 0.8); // thin silver ring
-      base = mix(base, vec3(0.2, 0.26, 0.25), smoothstep(0.62, 0.66, k));               // green-grey iris
+      base = mix(RED * 0.55, vec3(0.1, 0.12, 0.11), smoothstep(0.35, 0.48, k));         // skin lid -> dark eye
+      base = mix(base, vec3(0.62, 0.68, 0.64), smoothstep(0.035, 0.0, abs(k - 0.66)) * 0.75); // pale iris ring
+      base = mix(base, vec3(0.14, 0.18, 0.17), smoothstep(0.68, 0.72, k));
       base = mix(base, vec3(0.005, 0.01, 0.012), smoothstep(0.78, 0.82, k));          // big black pupil
       spec = 1.6; gloss = 140.0;
     }
@@ -370,7 +373,7 @@ const FRAG = /* glsl */`
 
     // specular + glitter: tiny specks that twinkle as the squid turns (the "shine specs")
     vec3 H = normalize(L + V);
-    float sp = pow(max(dot(N, H), 0.0), gloss) * spec + pow(max(dot(N, H), 0.0), 10.0) * spec * 0.22;
+    float sp = pow(max(dot(N, H), 0.0), gloss) * spec * 1.4 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.3;
     float glit = 0.0;
     if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
       float g = n3(q * 140.0 + vec3(0.0, 0.0, floor(dot(V, vec3(3.1, 2.3, 1.7)) * 6.0)));
@@ -396,11 +399,11 @@ const FRAG = /* glsl */`
 
 const FIN_GLSL = /* glsl */`
   float finHalfGLSL(float x){
-    float u = (x - 0.372) / 0.628;
+    float u = (x - 0.4) / 0.6;
     if (u <= 0.0 || u >= 1.0) return 0.0;
-    if (u < 0.34) return 0.262 * pow(sin((u / 0.34) * 1.5707963), 0.38);
-    float v = (u - 0.34) / 0.66;
-    return 0.262 * pow(max(1.0 - pow(v, 1.7), 0.0), 0.8);
+    if (u < 0.3) return 0.226 * pow(sin((u / 0.3) * 1.5707963), 0.5);
+    float v = (u - 0.3) / 0.7;
+    return 0.226 * pow(max(1.0 - v, 0.0), 0.6);
   }`;
 
 /* ----------------------------------------------------------------- squid */
@@ -438,7 +441,7 @@ export function createSquid() {
     const ang = ((i + 0.5) / ARMN) * TAU;          // around the crown, 0 = top
     const pair = Math.min(i, ARMN - 1 - i);         // 0 top .. 3 bottom
     const len = [0.54, 0.6, 0.68, 0.63][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
-    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.023, r1: 0.0012, ph: i * 1.7 });
+    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.02, r1: 0.0012, ph: i * 1.7 });
   }
   for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.2, len: 1.3, n: 150, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
@@ -547,8 +550,8 @@ export function createSquid() {
       const isT = L.kind === 'tent';
       const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
       // roots packed on the crown of the head (tentacles sit just inside the ventral arms)
-      const rootR = isT ? 0.026 : 0.062;
-      P[0].set(isT ? -0.25 : -0.262, ca * rootR * 0.9 + 0.012, sa * rootR);
+      const rootR = isT ? 0.02 : 0.046;
+      P[0].set(isT ? -0.185 : -0.19, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
       const rad = tA.set(0, ca, sa);
       const perp = tB.set(0, -sa, ca);
       const seg = L.len / L.n;
