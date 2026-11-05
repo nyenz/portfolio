@@ -322,26 +322,32 @@ const FRAG = /* glsl */`
       float outer = smoothstep(0.2, -0.7, c);         // aboral back of the arm
       float m = fbm(vec3(s * 18.0, ang * 4.0, vRest.z * 3.1));
       if (part == ${P_ARM}) {
-        // arm close-ups: pale white / grey-teal tubes with patchy red-pink mottling, red only near the head
-        vec3 pale = mix(vec3(0.4, 0.48, 0.48), vec3(0.2, 0.3, 0.32), smoothstep(0.35, 0.7, m));
-        float mott = smoothstep(0.5, 0.7, fbm(vec3(s * 26.0, ang * 6.0, vRest.z * 4.0 + 8.0)));
-        base = mix(pale, vec3(0.7, 0.26, 0.32), mott * (0.45 + 0.4 * outer));
-        base = mix(base, RED2 * 0.9, (1.0 - smoothstep(0.03, 0.2, f)) * 0.85);
-        base *= 1.0 - inner * 0.25;                                          // the sucker face is a little darker
-        flecks = smoothstep(0.62, 0.72, fbm(vec3(s * 50.0, ang * 9.0, vRest.z * 7.0))) * 0.5;
+        // arm close-ups: grey-teal skin, pale streaks running along the arm, irregular red-pink patches on the
+        // back that thin out toward the tip, a lighter sucker face, faint rings
+        float n1 = fbm(vec3(s * 9.0, ang * 3.0, vRest.z * 2.3));
+        vec3 skin = mix(vec3(0.06, 0.11, 0.12), vec3(0.16, 0.24, 0.25), smoothstep(0.35, 0.7, n1));   // linear values
+        float streak = smoothstep(0.55, 0.85, fbm(vec3(s * 3.0, ang * 14.0, vRest.z * 5.0 + 2.0)));
+        skin = mix(skin, vec3(0.36, 0.42, 0.41), streak * 0.45);
+        float rpatch = smoothstep(0.52, 0.66, fbm(vec3(s * 16.0, ang * 5.0, vRest.z * 3.0 + 9.0)));
+        rpatch *= (0.35 + 0.65 * outer) * (1.0 - smoothstep(0.55, 0.95, f));
+        base = mix(skin, vec3(0.5, 0.07, 0.1), rpatch * 0.85);
+        base = mix(base, vec3(0.16, 0.22, 0.22), inner * 0.5);          // the sucker face is paler
+        base = mix(base, RED2 * 0.85, (1.0 - smoothstep(0.03, 0.14, f)) * 0.7);   // red where it meets the head
+        base *= 1.0 - 0.08 * smoothstep(0.6, 1.0, sin(s * 260.0)) * outer;          // faint rings
+        flecks = smoothstep(0.66, 0.76, fbm(vec3(s * 60.0, ang * 10.0, vRest.z * 7.0))) * 0.35 * outer;
       } else {
         // stalk: crisp red / white bands, red near the base; club: pale with pink blotches
         float bandN = n3(vec3(floor(s * 52.0), vRest.z, 1.0));
         float band = step(0.38 + bandN * 0.2, fract(s * 52.0));
-        vec3 stalk = mix(vec3(0.94, 0.9, 0.9), RED2 * 0.92, band);
-        stalk = mix(stalk, vec3(0.95), smoothstep(0.8, 0.9, n3(vec3(s * 160.0, ang * 10.0, 3.0))) * 0.6);
+        vec3 stalk = mix(vec3(0.34, 0.36, 0.36), RED2 * 0.55, band);   // linear: pale grey and red bands
+        stalk = mix(stalk, vec3(0.5), smoothstep(0.8, 0.9, n3(vec3(s * 160.0, ang * 10.0, 3.0))) * 0.6);
         stalk = mix(stalk, RED, 1.0 - smoothstep(0.02, 0.12, f));
         float club = smoothstep(0.78, 0.83, f);
         // club: pink-red mottled with white, the toothed edge and the tip go pale
         float mot = fbm(vec3(s * 70.0, ang * 7.0, vRest.z * 5.0 + 4.0));
-        vec3 clubC = mix(vec3(0.86, 0.26, 0.36), vec3(0.95, 0.9, 0.9), smoothstep(0.42, 0.62, mot));
+        vec3 clubC = mix(vec3(0.5, 0.08, 0.12), vec3(0.4, 0.42, 0.42), smoothstep(0.42, 0.62, mot));
         float cu = clamp((f - 0.8) / 0.2, 0.0, 1.0);
-        clubC = mix(clubC, vec3(0.95, 0.93, 0.92), smoothstep(0.75, 1.0, cu) * 0.7 + inner * 0.25);
+        clubC = mix(clubC, vec3(0.45, 0.46, 0.45), smoothstep(0.75, 1.0, cu) * 0.7 + inner * 0.25);
         base = mix(stalk, clubC, club);
         flecks = club * smoothstep(0.66, 0.74, fbm(vec3(s * 60.0, ang * 6.0, 2.0))) * 0.6;
       }
@@ -412,7 +418,7 @@ const FRAG = /* glsl */`
     // a little subsurface: thin parts glow red when lit from behind
     if (part == ${P_FIN} || part == ${P_ARM} || part == ${P_TENT}) col += base * pow(max(dot(-N, L), 0.0), 2.0) * 0.25;
 
-    if (part == ${P_ARM}) col *= 0.62;   // arms sit in the shadow of the mantle (close-ups: dark teal)
+   // arms sit in the shadow of the mantle (close-ups: dark teal)
     // torch from the cursor
     col *= 1.0 + uTorch * 0.25;
 
@@ -468,7 +474,7 @@ export function createSquid() {
     const ang = ((i + 0.5) / ARMN) * TAU;          // around the crown, 0 = top
     const pair = Math.min(i, ARMN - 1 - i);         // 0 top .. 3 bottom
     const len = [0.68, 0.76, 0.86, 0.8][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
-    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.026, r1: 0.0015, ph: i * 1.7 });
+    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.03, r1: 0.0012, ph: i * 1.7 });
   }
   for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 2.2, n: 200, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
@@ -486,7 +492,7 @@ export function createSquid() {
       while (s < 0.97) {
         hookList.push({ li, s, side: row ? 1 : -1, lat: 0.42, arm: true, k: 0.85 + Math.random() * 0.3 });
         const w = section(L, s).r;
-        s += Math.max(0.0035, w * (0.95 + Math.random() * 0.15)) / L.len;   // one sucker per row every arm-width, rows offset
+        s += Math.max(0.003, w * (0.62 + Math.random() * 0.1)) / L.len;   // one sucker per row every arm-width, rows offset
         row ^= 1;
       }
     } else {
@@ -514,8 +520,8 @@ export function createSquid() {
       void main(){
         vec3 N = normalize(vN), V = normalize(uCamPos - vW), L = normalize(uSunD);
         // pale bead with a darker cup on top and a teal-grey stalk below
-        vec3 c = mix(vec3(0.26, 0.34, 0.36), vec3(0.7, 0.76, 0.74), smoothstep(0.0, 0.7, vY));
-        c = mix(c, vec3(0.3, 0.36, 0.38), smoothstep(1.15, 1.32, vY));
+        vec3 c = mix(vec3(0.05, 0.09, 0.1), vec3(0.42, 0.52, 0.5), smoothstep(0.0, 0.7, vY));
+        c = mix(c, vec3(0.08, 0.12, 0.13), smoothstep(1.15, 1.32, vY));
         float wrap = clamp((dot(N, L) + 0.4) / 1.4, 0.0, 1.0);
         vec3 col = c * (0.35 + 0.85 * wrap) + uTop * 0.08;
         vec3 H = normalize(L + V);
@@ -641,7 +647,7 @@ export function createSquid() {
         const w1 = Math.sin(TAU * (s * (isT ? 1.3 : 0.85)) - P2 + lp0);
         const w2 = Math.cos(TAU * (s * (isT ? 0.9 : 0.6)) - P2 * 0.7 + lp0 * 1.3);
         void wv;
-        const ampA = (isT ? 2.4 : 1.45) * (0.15 + 0.85 * s * s) * (0.75 + Q.agit * 0.8 + (Q.mode === 'idle' ? 0.5 : 0));
+        const ampA = (isT ? 2.4 : 0.6) * (0.15 + 0.85 * s * s) * (0.75 + Q.agit * 0.8 + (Q.mode === 'idle' ? 0.5 : 0));
         // arms leave the crown nearly parallel, fan out slightly, then the tips curl a touch inward
         const open = isT ? spread * (1.2 - s * 0.5) : spread * (1.05 - s * 0.45);   // the arms splay as a loose cone (video)
         dir.set(-1, 0, 0)
@@ -649,13 +655,16 @@ export function createSquid() {
           .addScaledVector(perp, isT ? 0 : w1 * ampA * 0.16)
           .addScaledVector(rad, (isT ? 0 : w2 * ampA * 0.1) + (isT ? 0 : -0.26 * s * (0.5 + 0.5 * Math.sin(Q.ph * 0.2 + L.ph))));
         if (!isT) {
-          // each arm writhes on its own slow rhythm: bends, loops and curls (new swim video)
-          const tq = Q.t, sp = Math.pow(s, 1.25);
-          dir.addScaledVector(perp, 1.25 * sp * Math.sin(tq * 0.75 + L.ph * 2.1 + s * 2.6));
-          dir.addScaledVector(rad, 0.95 * sp * Math.cos(tq * 0.6 + L.ph * 1.3 - s * 3.2));
-          dir.y -= 0.1 * s;                                                     // the bundle droops toward the belly
-          dir.addScaledVector(perp, 0.14 * Math.sin(L.ph * 2.3) * s);          // each arm bends its own way
-          dir.addScaledVector(rad, -0.18 * ss(0.55, 1.0, s));                   // tips curl inward
+          // the arms move as one bundle (swim video): a shared slow wave rolls from the crown to the tips,
+          // each arm only slightly out of step with its neighbours; the tips roll inward together
+          const ai = L.ang / TAU;                                   // 0..1 around the crown
+          const tq = Q.t * 0.7, sp = Math.pow(s, 1.4);
+          const ph = tq - s * 4.0 + ai * 1.2;
+          dir.addScaledVector(perp, 0.8 * sp * Math.sin(ph));
+          dir.addScaledVector(rad, 0.6 * sp * Math.cos(ph * 0.9 + 0.7));
+          const curl = 0.35 + 0.25 * Math.sin(tq * 0.6 + ai * 0.8);  // breathing curl of the whole bundle
+          dir.addScaledVector(rad, -curl * ss(0.45, 1.0, s));
+          dir.y -= 0.08 * s;
         }
         if (isT) {
           // soft, cohesive drift (new swim video): one long wave rolls slowly from the head to the club;
@@ -691,8 +700,8 @@ export function createSquid() {
   function section(L, s) {
     if (L.kind === 'arm') {
       // thick webbed base, holds its width for the first third, then a long taper to a fine point
-      const r = L.r0 * Math.pow(Math.max(1 - Math.pow(s, 1.5), 0), 0.95) * (0.82 + 0.18 * ss(0.0, 0.05, s)) + L.r1;   // roots tuck into the head, full width just outside it
-      return { r, w: 1.08, h: 0.92, club: 0 };
+      const r = L.r0 * Math.pow(Math.max(1 - s, 0), 0.75) * (0.85 + 0.15 * ss(0.0, 0.06, s)) + L.r1;   // round tube: steady taper to a fine tip   // roots tuck into the head, full width just outside it
+      return { r, w: 1.0, h: 0.96, club: 0 };
     }
     // tentacle: slightly thicker where it leaves the head, thin stalk, leaf club
     const cu = cl((s - 0.8) / 0.2, 0, 1);
@@ -822,7 +831,7 @@ export function createSquid() {
     const push = Q.cyc < 0.32 ? 1 : 0;
     Q.speed = lp(Q.speed, (Q.mode === 'idle' ? 0.12 : 0.42) + push * (0.35 + Q.jetE * 1.6) + Q.agit * 0.4, k1(dt, push ? 5 : 1.4));
     Q.surge = lp(Q.surge, push * 0.045 * (1 + Q.jetE * 1.5) + 0.012 * Math.max(0, Math.sin(Q.ph)), k1(dt, push ? 6 : 1.8));
-    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 0.95 : 0.75 + Q.agit * 0.3, k1(dt, 1.5));
+    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 1.1 : 0.95 + Q.agit * 0.3, k1(dt, 1.5));
     Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 1.0 : 0.9) * (1 - Q.jetE * 0.8) + Q.agit * 0.3, k1(dt, 2));
 
     // body attitude: fin first and upward; a slow drift so it never looks fixed
