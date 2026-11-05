@@ -308,12 +308,12 @@ const FRAG = /* glsl */`
       base *= 1.0 - vband * 0.45;                                          // the dark V on the fin's midline
       // pale, see-through margin
       float rag = fbm(vec3(vL.x * 40.0, vL.z * 6.0, 2.0));
-      float margin = smoothstep(0.5, 0.86, e + (m - 0.5) * 0.3 + (rag - 0.5) * 0.25);
+      float margin = smoothstep(0.62, 0.9, e + (m - 0.5) * 0.3 + (rag - 0.5) * 0.35);
       base *= 1.0 - 0.75 * exp(-pow(vL.z / 0.007, 2.0)) * smoothstep(0.5, 0.6, vL.x) * (1.0 - smoothstep(0.88, 0.98, vL.x));   // the dark slit
       base = mix(base, PALE * 1.08, margin * 0.92);
       float blot = smoothstep(0.68, 0.76, fbm(q * vec3(8.0, 8.0, 12.0) + 9.0));
       flecks = blot * 0.7 * (1.0 - margin);
-      alpha = mix(1.0, 0.55, margin) * (1.0 - smoothstep(0.9 + rag * 0.08, 0.99, e));   // ragged, see-through edge
+      alpha = mix(1.0, 0.38, margin) * (1.0 - smoothstep(0.86 + rag * 0.12, 0.99, e));   // thin, see-through, torn edge   // ragged, see-through edge
       spec = 0.4;
     } else if (part == ${P_ARM} || part == ${P_TENT}) {
       float s = vRest.x, ang = vRest.y, f = vUv.x;  // distance along, angle around (0 = inner face), fraction along
@@ -598,7 +598,8 @@ export function createSquid() {
         const cup = 0.01 * e * e * (1 - Q.pulse) + 0.025 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
         // the tip flicks a little
         const tip = Math.sin(ph - 6.5) * 0.012 * ss(0.85, 1, x) * amp;
-        const scal = 1 + 0.035 * Math.sin(x * 95 + ph * 0.5) * ss(0.75, 1, e);   // ruffled, scalloped margin
+        const torn = Math.sin(x * 95 + ph * 0.5) * 0.5 + Math.sin(x * 233 + 1.7) * 0.3 + Math.sin(x * 41 + 4.0) * 0.4;
+        const scal = 1 + 0.05 * torn * ss(0.7, 1, e);   // torn, uneven margin   // ruffled, scalloped margin
         const zz = z * (1 - fold * 0.12 * e) * scal * (1 - 0.06 * e * e * (0.6 + 0.4 * Math.cos(ph - 0.6)));
         FP[ri] = x; FP[ri + 1] = 0.018 + 0.02 * ss(0.3, 0.5, x) + lift + cup + tip; FP[ri + 2] = zz;
         k++;
