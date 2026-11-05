@@ -828,9 +828,9 @@ export function createSquid() {
 
     // body attitude: fin first and upward; a slow drift so it never looks fixed
     const curious = (ctx.pointerX || 0);
-    Q.yaw = lp(Q.yaw, 0.12 * Math.sin(t * 0.23) + curious * 0.12 * (1 - Q.agit) - curious * 0.2 * Q.agit, k1(dt, 0.8));
-    Q.pitch = lp(Q.pitch, 0.06 * Math.sin(t * 0.31 + 1) + (ctx.pointerY || 0) * 0.06 + (Q.mode === 'idle' ? -0.25 : 0), k1(dt, 0.8));
-    Q.roll = lp(Q.roll, 0.1 * Math.sin(t * 0.19 + 2) - curious * 0.1, k1(dt, 0.7));
+    Q.yaw = lp(Q.yaw, 0.3 * Math.sin(t * 0.17) + 0.12 * Math.sin(t * 0.41 + 2.0) + curious * 0.12 * (1 - Q.agit) - curious * 0.2 * Q.agit, k1(dt, 0.8));
+    Q.pitch = lp(Q.pitch, 0.2 * Math.sin(t * 0.21 + 1) + 0.08 * Math.sin(t * 0.53) + (ctx.pointerY || 0) * 0.06 + (Q.mode === 'idle' ? -0.25 : 0), k1(dt, 0.8));
+    Q.roll = lp(Q.roll, 0.38 * Math.sin(t * 0.15 + 2) + 0.12 * Math.sin(t * 0.37) - curious * 0.1, k1(dt, 0.7));
     Q.eye.x = lp(Q.eye.x, cl(ctx.pointerX || 0, -1, 1), k1(dt, 6));
     Q.eye.y = lp(Q.eye.y, cl(ctx.pointerY || 0, -1, 1), k1(dt, 6));
 
