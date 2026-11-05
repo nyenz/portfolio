@@ -111,8 +111,8 @@ function buildBody() {
   B.grid(110, NA, (u, v, o) => { const a = (v - 0.5) * TAU; const x = lp(rimX(a), 1.0, Math.pow(u, 1.15)); mantlePoint(x, a, 1, o); }, P_MANTLE, false);
   // inner wall of the collar opening (dark), slightly inside the rim
   // rolled lip: a half-round from the outer skin to the inner wall
-  B.grid(8, NA, (u, v, o) => { const a = (v - 0.5) * TAU, t = u * Math.PI; mantlePoint(rimX(a) - 0.014 * Math.sin(t), a, 1 - 0.045 * (1 - Math.cos(t)), o); }, P_MANTLE, false, undefined, 0);
-  B.grid(16, NA, (u, v, o) => { const x = lp(rimX((v - 0.5) * TAU), 0.22, u); mantlePoint(x, (v - 0.5) * TAU, 0.91 * (1 - u * 0.25), o); }, P_INNER, true);
+  B.grid(8, NA, (u, v, o) => { const a = (v - 0.5) * TAU, t = u * Math.PI; mantlePoint(rimX(a) - 0.022 * Math.sin(t), a, 1 - 0.085 * (1 - Math.cos(t)), o); }, P_MANTLE, false, undefined, 0);
+  B.grid(16, NA, (u, v, o) => { const x = lp(rimX((v - 0.5) * TAU), 0.22, u); mantlePoint(x, (v - 0.5) * TAU, 0.83 * (1 - u * 0.25), o); }, P_INNER, true);
   // head (neck hidden inside the collar, bulge, crown where the arms grow)
   B.grid(40, 40, (u, v, o) => {
     const x = lp(0.07, -0.245, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
@@ -275,7 +275,9 @@ const FRAG = /* glsl */`
       // pale collar rim
       float streak = fbm(vec3(vUv.y * 60.0, vUv.x * 6.0, 3.0));                          // streaks run back from the lip
       float streak2 = smoothstep(0.45, 0.7, fbm(vec3(vUv.y * 90.0, vUv.x * 3.0, 9.0)));
-      float rim = 1.0 - smoothstep(0.01, 0.03 + 0.16 * streak2 * streak, vUv.x + (m - 0.5) * 0.02);
+      float blotch = fbm(vec3(vUv.y * 40.0, vUv.x * 20.0, 5.0));
+      float rim = 1.0 - smoothstep(0.01, 0.025 + 0.2 * streak2 * streak + 0.08 * blotch, vUv.x + (m - 0.5) * 0.04);
+      rim *= 0.55 + 0.45 * smoothstep(0.3, 0.55, blotch);                                 // patchy, not an even band
       rim *= mix(0.35, 1.0, smoothstep(0.3, -0.4, vL.y / 0.2));
       if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.05, rim * 0.95); flecks = max(flecks * (1.0 - rim), smoothstep(0.6, 0.75, streak) * (1.0 - smoothstep(0.04, 0.2, vUv.x)) * 0.8); }
       if (part == ${P_HEAD}) {
