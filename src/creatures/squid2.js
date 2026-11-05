@@ -283,8 +283,10 @@ const FRAG = /* glsl */`
       rim *= mix(0.35, 1.0, smoothstep(0.3, -0.4, vL.y / 0.2));
       if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.05, rim * 0.95); flecks = max(flecks * (1.0 - rim), smoothstep(0.6, 0.75, streak) * (1.0 - smoothstep(0.04, 0.2, vUv.x)) * 0.8); }
       if (part == ${P_HEAD}) {
-        float sideK = smoothstep(0.03, 0.08, abs(vL.z)) * smoothstep(0.06, -0.06, vL.y);
-        base = mix(base, vec3(0.62, 0.72, 0.66), sideK * 0.45);            // silvery green cheeks below the eye
+        float sideK = smoothstep(0.03, 0.08, abs(vL.z)) * smoothstep(0.08, -0.06, vL.y);
+        float hm = fbm(vec3(vL.x * 45.0, vL.y * 45.0, vL.z * 25.0) + 3.0);
+        vec3 green = mix(vec3(0.05, 0.11, 0.1), vec3(0.22, 0.32, 0.28), smoothstep(0.4, 0.7, hm));
+        base = mix(base, green, (0.35 + 0.5 * sideK) * smoothstep(0.38, 0.6, hm + sideK * 0.3));   // red and green-silver mottling
         flecks *= 0.8;
         float de = length(vec2(vL.x + 0.095, vL.y - 0.026)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
         base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
