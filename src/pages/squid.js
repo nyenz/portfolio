@@ -68,9 +68,17 @@ addEventListener('resize', () => {
   post.resize(innerWidth, innerHeight, dpr);
 });
 
-let last = performance.now(), time = 0;
+let last = performance.now(), time = 0, pendingT = 0;
+const MANUAL = new URLSearchParams(location.search).has('manual');
 renderer.setAnimationLoop((now) => {
-  const dt = Math.min((now - last) / 1000, 1 / 20);
+  // ?manual: time only moves when a test calls __squid.advance(seconds) (for exact frame-by-frame checks)
+  let dt = Math.min((now - last) / 1000, 1 / 20);
+  if (MANUAL) { dt = 1 / 60; if (pendingT <= 0) { dt = 0; } }
+  if (MANUAL && pendingT > 0) {
+    while (pendingT > 1e-6) { const h = Math.min(1 / 60, pendingT); pendingT -= h; time += h; U.uTime.value = time;
+      squid.update(h, { anchor: target, camera, idle: mode === 'idle' ? 10 : 0, pointerX: 0, pointerY: 0, pointerPx: -1e4, pointerPy: -1e4, pointerSpeed: 0, exit: 0 }); }
+    dt = 0;
+  }
   last = now; time += dt;
   updateEnv(850);   // dark open water like the reference viewer
   U.uTop.value.set(0x0f4f5e); U.uMid.value.set(0x05303f); U.uDeep.value.set(0x011720); U.uFog.value.set(0x042833);
@@ -85,7 +93,7 @@ renderer.setAnimationLoop((now) => {
   water.update(camera); shafts.update(camera);
 
   if (mode === 'jet') { jetT += dt; if (jetT > 2.4) { squid.state.jet = 1; jetT = 0; } }
-  squid.update(dt, {
+  if (dt > 0) squid.update(dt, {
     anchor: target, camera,
     idle: mode === 'idle' ? 10 : 0,
     pointerX: P.x, pointerY: P.y, pointerPx: P.px, pointerPy: P.py, pointerSpeed: P.speed, exit: 0,
@@ -96,7 +104,7 @@ renderer.setAnimationLoop((now) => {
   LENS.uniforms.uTime.value = time;
   post.composer.render(dt);
 });
-window.__squid = { squid, camera, controls, target,
+window.__squid = { squid, camera, controls, target, advance(t) { pendingT += t; },
   view(name) {
     // fixed views to compare against the reference pictures
     const q = squid.group.children[0].quaternion, d = new THREE.Vector3();

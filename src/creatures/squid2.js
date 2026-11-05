@@ -27,8 +27,8 @@ const P_MANTLE = 0, P_INNER = 1, P_HEAD = 2, P_FIN = 3, P_ARM = 4, P_TENT = 5, P
 
 /* ------------------------------------------------------------------ shape */
 // mantle half-width along the body (x = 0 at the collar rim)
-const MANTLE = [[-0.1, 0.16], [-0.07, 0.17], [-0.04, 0.178], [0.0, 0.186], [0.04, 0.193], [0.09, 0.195], [0.15, 0.191], [0.21, 0.181], [0.27, 0.165], [0.32, 0.145], [0.36, 0.12], [0.39, 0.095], [0.42, 0.068], [0.45, 0.044], [0.5, 0.03], [0.6, 0.022], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
-const HEAD = [[0.07, 0.064], [0.03, 0.066], [0.0, 0.068], [-0.04, 0.078], [-0.08, 0.09], [-0.11, 0.09], [-0.15, 0.08], [-0.19, 0.07], [-0.23, 0.062], [-0.26, 0.052], [-0.278, 0.034], [-0.286, 0.001]].reverse();   // ascending x for curve()
+const MANTLE = [[-0.1, 0.176], [-0.07, 0.187], [-0.04, 0.196], [0.0, 0.205], [0.04, 0.213], [0.09, 0.215], [0.15, 0.21], [0.21, 0.199], [0.27, 0.181], [0.32, 0.158], [0.36, 0.13], [0.39, 0.102], [0.42, 0.072], [0.45, 0.046], [0.5, 0.03], [0.6, 0.022], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
+const HEAD = [[0.07, 0.066], [0.03, 0.068], [0.0, 0.07], [-0.04, 0.08], [-0.08, 0.09], [-0.11, 0.088], [-0.15, 0.076], [-0.19, 0.064], [-0.22, 0.052], [-0.237, 0.034], [-0.245, 0.001]].reverse();   // ascending x for curve()
 function curve(tab, x) {
   // Catmull-Rom through the profile points (smooth, no kinks -> no shading bands)
   if (x <= tab[0][0]) return tab[0][1];
@@ -44,9 +44,9 @@ function curve(tab, x) {
 export function finHalf(x) {
   const u = (x - 0.4) / 0.6;
   if (u <= 0 || u >= 1) return 0;
-  if (u < 0.3) return 0.226 * Math.pow(Math.sin((u / 0.3) * Math.PI / 2), 0.5);   // rounded front lobes
-  const v = (u - 0.3) / 0.7;
-  return 0.226 * Math.pow(1 - v, 0.5);                                              // near-straight edges to the tip
+  if (u < 0.32) return 0.275 * Math.pow(Math.sin((u / 0.32) * Math.PI / 2), 0.45);   // big rounded front lobes
+  const v = (u - 0.32) / 0.68;
+  return 0.275 * Math.pow(1 - v, 0.62);                                              // near-straight edges to the tip
 }
 
 /* --------------------------------------------------------------- geometry */
@@ -87,11 +87,15 @@ function mantlePoint(x, a, scaleR, out) {
   const nearLip = 1 - ss(rimX(a), rimX(a) + 0.12, x);
   const r = curve(MANTLE, x) * scaleR * (1 + 0.03 * (1 - ss(-0.08, 0.05, x))) * (1 - 0.16 * vent * nearLip * nearLip);
   const mantleZone = 1 - ss(0.36, 0.44, x);
-  const hRatio = lp(0.78, 0.86 + 0.16 * Math.exp(-Math.pow((x - 0.13) / 0.22, 2)), mantleZone);   // fullest in the front third (side photo)   // flatter at the collar, deep mid-mantle   // deepest mid-mantle (side photo)   // round at the collar, deeper than wide toward the rear (side photo)   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
+  const hRatio = lp(1.55, 0.86 + 0.16 * Math.exp(-Math.pow((x - 0.13) / 0.22, 2)), mantleZone);   // fullest in the front third (side photo)   // flatter at the collar, deep mid-mantle   // deepest mid-mantle (side photo)   // round at the collar, deeper than wide toward the rear (side photo)   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
   const ca = Math.cos(a), sa = Math.sin(a);
   const sq = 1;
   const rk = ss(0.03, 0.2, x) * mantleZone;
-  const groove = 1 + 0.07 * rk * Math.exp(-(a * a) / 0.006) - 0.035 * rk * Math.exp(-Math.pow(Math.abs(a) - 0.2, 2) / 0.006) - 0.18 * (1 - mantleZone) * Math.exp(-(a * a) / 0.018);
+  const keel = ss(0.04, 0.36, x);
+  const groove = (1 + 0.2 * keel * mantleZone * Math.exp(-(a * a) / 0.14))            // roof shape
+               * (1 + 0.15 * keel * Math.exp(-(a * a) / 0.006))                         // the raised rod on the midline
+               * (1 - 0.06 * keel * Math.exp(-Math.pow(Math.abs(a) - 0.2, 2) / 0.004));   // a crease each side of the rod
+  void rk;
   const ventralFlat = 1;
   const rr = r * sq * groove * ventralFlat;
   const yAsym = lp(1, lp(0.92, 1.14, (1 - ca) / 2), mantleZone);   // flatter back, fuller belly, kept smooth along the body   // flatter back, deep rounded belly
@@ -111,7 +115,7 @@ function buildBody() {
   B.grid(16, NA, (u, v, o) => { const x = lp(rimX((v - 0.5) * TAU), 0.22, u); mantlePoint(x, (v - 0.5) * TAU, 0.91 * (1 - u * 0.25), o); }, P_INNER, true);
   // head (neck hidden inside the collar, bulge, crown where the arms grow)
   B.grid(40, 40, (u, v, o) => {
-    const x = lp(0.07, -0.286, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
+    const x = lp(0.07, -0.245, u), r = curve(HEAD, x), a = (v - 0.5) * TAU;
     // eye orbits: the sides swell where the eyes sit
     const orb = Math.exp(-Math.pow((x + 0.095) / 0.04, 2)) * Math.pow(Math.abs(Math.sin(a)), 1.5) * Math.exp(-Math.pow(Math.cos(a) - 0.15, 2) / 0.5);
     o.set(x, Math.cos(a) * r * 1.1 + 0.012, Math.sin(a) * r * 0.9 * (1 + 0.3 * orb));
@@ -128,9 +132,9 @@ function buildEyes() {
   const B = GeoBuilder();
   for (const side of [-1, 1]) {
     B.grid(18, 24, (u, v, o) => {
-      const th = u * Math.PI, ph = v * TAU, r = 0.05;
+      const th = u * Math.PI, ph = v * TAU, r = 0.056;
       // the eye looks sideways (local z), u=0 at the pupil
-      o.set(Math.sin(th) * Math.cos(ph) * r - 0.095, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.026, side * (0.088 + Math.cos(th) * r * 0.55));
+      o.set(Math.sin(th) * Math.cos(ph) * r - 0.095, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.026, side * (0.08 + Math.cos(th) * r * 0.32));
     }, P_EYE, side < 0);
   }
   return B.build();
@@ -144,7 +148,7 @@ function buildFin() {
     B.grid(NX, NZ, (u, v, o) => {
       // rows run from the midline (v=0) to the edge (v=1); the front of each row moves forward
       // toward the edge so the lobes overhang the waist like the reference's heart shape
-      const x0 = 0.402;
+      const x0 = 0.402 - 0.05 * Math.pow(v, 1.6);   // the lobes reach forward beside the mantle (dorsal photo)
       const x = lp(x0, 1.0, u), w = finHalf(x);
       o.set(x, 0, side * (0.012 + v * Math.max(w - 0.012, 0)));
     }, P_FIN, side > 0);
@@ -203,7 +207,7 @@ const VERT = /* glsl */`
     if (aPart < 1.5) {
       float zone = (1.0 - smoothstep(0.30, 0.43, p.x));
       float rim = 1.0 - smoothstep(0.0, 0.07, p.x);
-      float k = 1.0 - uPulse * 0.085 * zone + uFlare * 0.05 * rim;
+      float k = 1.0 - uPulse * 0.14 * zone + uFlare * 0.07 * rim;
       p.yz *= k;
     }
     vRest = aRest; vPart = aPart; vUv = aUv;
@@ -262,14 +266,17 @@ const FRAG = /* glsl */`
       float dorsal = smoothstep(-0.05, 0.08, vL.y);
       flecks = clamp(blot * 0.85 + fleck * (0.7 + 0.3 * dorsal), 0.0, 1.0);
       // dark midline groove
-      float groove = exp(-pow(vL.z / 0.009, 2.0)) * smoothstep(0.03, 0.15, vL.x) * dorsal;
-      float ridge = exp(-pow((abs(vL.z) - 0.022) / 0.01, 2.0)) * smoothstep(0.05, 0.2, vL.x) * dorsal;
-      base *= 1.0 - groove * 0.7;
-      base = mix(base, RED2 * 1.15, ridge * 0.5);
+      // bright raised rod on the midline, dark creases either side of it
+      float kk = smoothstep(0.06, 0.3, vL.x) * dorsal;
+      float rodK = exp(-pow(vL.z / 0.018, 2.0)) * kk;
+      float crease = exp(-pow((abs(vL.z) - 0.036) / 0.011, 2.0)) * kk;
+      base = mix(base, RED2 * 1.1, rodK * 0.45);
+      base *= 1.0 - crease * 0.6;
       // pale collar rim
       float streak = fbm(vec3(vUv.y * 60.0, vUv.x * 6.0, 3.0));                          // streaks run back from the lip
       float streak2 = smoothstep(0.45, 0.7, fbm(vec3(vUv.y * 90.0, vUv.x * 3.0, 9.0)));
       float rim = 1.0 - smoothstep(0.01, 0.03 + 0.16 * streak2 * streak, vUv.x + (m - 0.5) * 0.02);
+      rim *= mix(0.35, 1.0, smoothstep(0.3, -0.4, vL.y / 0.2));
       if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.05, rim * 0.95); flecks = max(flecks * (1.0 - rim), smoothstep(0.6, 0.75, streak) * (1.0 - smoothstep(0.04, 0.2, vUv.x)) * 0.8); }
       if (part == ${P_HEAD}) {
         float sideK = smoothstep(0.03, 0.08, abs(vL.z)) * smoothstep(0.06, -0.06, vL.y);
@@ -350,17 +357,22 @@ const FRAG = /* glsl */`
       base = mix(vec3(0.86, 0.6, 0.64), vec3(0.97, 0.96, 0.93), smoothstep(0.0, 0.7, vRest.y));
       spec = 0.5; gloss = 50.0;
     } else { // eye
-      vec3 c = vec3(-0.095, 0.026, sign(vL.z) * 0.088);
+      vec3 c = vec3(-0.095, 0.026, sign(vL.z) * 0.08);
       vec3 d = normalize(vL - c);
       vec3 look = normalize(vec3(uEye.x * 0.6, uEye.y * 0.4, sign(vL.z)));
       float k = dot(d, look);
       // red lid -> silver ring -> green-grey iris -> big black pupil
       vec3 iris = mix(vec3(0.62, 0.7, 0.68), vec3(0.36, 0.44, 0.42), smoothstep(0.9, 0.95, k));
-      base = mix(vec3(0.42, 0.47, 0.44), vec3(0.1, 0.12, 0.11), smoothstep(0.35, 0.48, k));   // silvery lid         // skin lid -> dark eye
-      base = mix(base, vec3(0.62, 0.68, 0.64), smoothstep(0.035, 0.0, abs(k - 0.66)) * 0.75); // pale iris ring
-      base = mix(base, vec3(0.14, 0.18, 0.17), smoothstep(0.68, 0.72, k));
-      base = mix(base, vec3(0.005, 0.01, 0.012), smoothstep(0.78, 0.82, k));          // big black pupil
-      spec = 1.6; gloss = 140.0;
+      vec3 tng = normalize(cross(look, vec3(0.0, 1.0, 0.0)));
+      float ang = atan(dot(d, cross(look, tng)), dot(d, tng));
+      float fib = 0.5 + 0.5 * sin(ang * 46.0 + n3(vec3(ang * 6.0, k * 9.0, 1.0)) * 4.0);
+      vec3 lid = mix(vec3(0.3, 0.38, 0.34), vec3(0.55, 0.22, 0.24), smoothstep(0.55, 0.7, n3(d * 18.0)));   // mottled green-grey and red lid
+      vec3 irisC = mix(vec3(0.16, 0.3, 0.32), vec3(0.38, 0.55, 0.56), fib * 0.6);
+      irisC = mix(irisC, vec3(0.7, 0.82, 0.8), smoothstep(0.03, 0.0, abs(k - 0.56)) * 0.8 + smoothstep(0.03, 0.0, abs(k - 0.8)) * 0.4);   // concentric rings
+      base = mix(lid, vec3(0.08, 0.1, 0.1), smoothstep(0.3, 0.4, k));              // dark rim around the iris
+      base = mix(base, irisC, smoothstep(0.45, 0.52, k));                           // broad silver-teal iris
+      base = mix(base, vec3(0.004, 0.006, 0.008), smoothstep(0.86, 0.885, k));     // black pupil
+      spec = 2.2; gloss = 180.0;
     }
 
     float underK = 0.0;
@@ -419,9 +431,9 @@ const FIN_GLSL = /* glsl */`
   float finHalfGLSL(float x){
     float u = (x - 0.4) / 0.6;
     if (u <= 0.0 || u >= 1.0) return 0.0;
-    if (u < 0.3) return 0.226 * pow(sin((u / 0.3) * 1.5707963), 0.5);
-    float v = (u - 0.3) / 0.7;
-    return 0.226 * pow(max(1.0 - v, 0.0), 0.5);
+    if (u < 0.32) return 0.275 * pow(sin((u / 0.32) * 1.5707963), 0.45);
+    float v = (u - 0.32) / 0.68;
+    return 0.275 * pow(max(1.0 - v, 0.0), 0.62);
   }`;
 
 /* ----------------------------------------------------------------- squid */
@@ -461,7 +473,7 @@ export function createSquid() {
     const len = [0.54, 0.6, 0.68, 0.63][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
     specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.02, r1: 0.0012, ph: i * 1.7 });
   }
-  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.2, len: 1.3, n: 150, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
+  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 1.75, n: 180, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
   const limbMesh = new THREE.Mesh(limbs.geo, mat);
   limbMesh.frustumCulled = false; finMesh.frustumCulled = false;
@@ -527,12 +539,12 @@ export function createSquid() {
         const ri = k * 3; const x = FR[ri], z = FR[ri + 2];
         const w = Math.max(finHalf(x), 1e-3), e = Math.min(Math.abs(z) / w, 1);
         // the fin beats up and down in a wave running from front to tip; lobes lead
-        const wave = Math.sin(ph - x * 7.5);
-        const fold = Q.jetE * 0.9 + Q.pulse * 0.12;    // folds down along the body during a push
-        const lift = (wave * amp * 0.17 * Math.pow(e, 1.25) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
+        const wave = Math.sin(ph - x * 9.0) + 0.35 * Math.sin(2.0 * ph - x * 14.0 + 1.0);   // a strong wave runs from the lobes to the tip
+        const fold = Q.jetE * 0.9 + Q.pulse * 0.06;    // folds down along the body during a push
+        const lift = (wave * amp * 0.26 * Math.pow(e, 1.2) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
         // a soft cup across the fin (edges slightly up when relaxed)
         const lobe = (1 - ss(0.5, 0.78, x)) * e * e;        // the front lobes cup and open with the beat
-        const cup = -0.02 * e * e + 0.02 * e * e * (1 - Q.pulse) + 0.06 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
+        const cup = 0.01 * e * e * (1 - Q.pulse) + 0.06 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
         // the tip flicks a little
         const tip = Math.sin(ph - 6.5) * 0.012 * ss(0.85, 1, x) * amp;
         const scal = 1 + 0.035 * Math.sin(x * 95 + ph * 0.5) * ss(0.75, 1, e);   // ruffled, scalloped margin
@@ -569,7 +581,7 @@ export function createSquid() {
       const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
       // roots packed on the crown of the head (tentacles sit just inside the ventral arms)
       const rootR = isT ? 0.02 : 0.042;
-      P[0].set(isT ? -0.25 : -0.255, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
+      P[0].set(isT ? -0.21 : -0.215, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
       const rad = tA.set(0, ca, sa);
       const perp = tB.set(0, -sa, ca);
       const seg = L.len / L.n;
@@ -584,9 +596,9 @@ export function createSquid() {
         const w1 = Math.sin(TAU * (s * (isT ? 1.3 : 0.85)) - P2 + lp0);
         const w2 = Math.cos(TAU * (s * (isT ? 0.9 : 0.6)) - P2 * 0.7 + lp0 * 1.3);
         void wv;
-        const ampA = (isT ? 2.0 : 1.0) * (0.15 + 0.85 * s * s) * (0.75 + Q.agit * 0.8 + (Q.mode === 'idle' ? 0.5 : 0));
+        const ampA = (isT ? 2.4 : 1.45) * (0.15 + 0.85 * s * s) * (0.75 + Q.agit * 0.8 + (Q.mode === 'idle' ? 0.5 : 0));
         // arms leave the crown nearly parallel, fan out slightly, then the tips curl a touch inward
-        const open = isT ? spread * (1.2 - s * 0.5) : spread * (1.25 - s * 1.1);
+        const open = isT ? spread * (1.2 - s * 0.5) : spread * (1.05 - s * 0.45);   // the arms splay as a loose cone (video)
         dir.set(-1, 0, 0)
           .addScaledVector(rad, open)
           .addScaledVector(perp, w1 * ampA * 0.16)
@@ -599,8 +611,8 @@ export function createSquid() {
         if (isT) {
           // stalks run inside the arm bundle first, then trail in long lazy S-curves
           const free = ss(0.25, 0.45, s);
-          dir.addScaledVector(perp, L.side * (0.1 + 0.24 * Math.sin(Q.ph * 0.22 + L.ph)) * free);          // the two stalks drift apart and back together
-          dir.addScaledVector(rad, 0.38 * Math.sin(Q.ph * 0.38 - s * 3.5 + L.ph) * s * free);          // clubs swing slowly, behind the beat
+          dir.addScaledVector(perp, L.side * (0.26 + 0.34 * Math.sin(Q.ph * 0.22 + L.ph)) * free);          // the two stalks drift apart and back together
+          dir.addScaledVector(rad, 0.55 * Math.sin(Q.ph * 0.38 - s * 3.5 + L.ph) * s * free);          // clubs swing slowly, behind the beat
           dir.addScaledVector(rad, -0.06 * (1 - free));
         }
         dir.normalize();
@@ -608,7 +620,7 @@ export function createSquid() {
       }
       if (!ch.init) { for (let i = 0; i <= L.n; i++) ch.lag[i].copy(P[i]); ch.init = true; }
       for (let i = 1; i <= L.n; i++) {
-        const s = i / L.n, f = k1(dt, lp(30, isT ? 3.5 : 7, s));
+        const s = i / L.n, f = k1(dt, lp(30, isT ? 2.2 : 6, s));
         ch.lag[i].lerp(P[i], f);
       }
       ch.lag[0].copy(P[0]);
@@ -632,7 +644,7 @@ export function createSquid() {
     const club = cu > 0 ? Math.pow(Math.sin(Math.pow(cu, 0.62) * Math.PI), 0.75) : 0;
     let r = lp(L.r0, L.r1, ss(0.0, 0.2, s));
     r *= 1 - ss(0.95, 1.0, s) * 0.7;
-    return { r, w: 1 + club * 7.6, h: 1 - club * 0.66, club };
+    return { r, w: 1 + club * 4.6, h: 1 - club * 0.6, club };
   }
 
   function writeTube(li, L, P) {
@@ -735,8 +747,8 @@ export function createSquid() {
     const push = Q.cyc < 0.32 ? 1 : 0;
     Q.speed = lp(Q.speed, (Q.mode === 'idle' ? 0.12 : 0.42) + push * (0.35 + Q.jetE * 1.6) + Q.agit * 0.4, k1(dt, push ? 5 : 1.4));
     Q.surge = lp(Q.surge, push * 0.045 * (1 + Q.jetE * 1.5) + 0.012 * Math.max(0, Math.sin(Q.ph)), k1(dt, push ? 6 : 1.8));
-    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 0.6 : 0.36 + Q.agit * 0.3, k1(dt, 1.5));
-    Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 0.85 : 0.6) * (1 - Q.jetE * 0.8) + Q.agit * 0.3, k1(dt, 2));
+    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 0.95 : 0.75 + Q.agit * 0.3, k1(dt, 1.5));
+    Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 1.0 : 0.9) * (1 - Q.jetE * 0.8) + Q.agit * 0.3, k1(dt, 2));
 
     // body attitude: fin first and upward; a slow drift so it never looks fixed
     const curious = (ctx.pointerX || 0);
@@ -763,7 +775,7 @@ export function createSquid() {
 
   // travel direction: local +X points up-right, slightly toward the camera; dorsal side faces the viewer
   {
-    const fwd = new THREE.Vector3(0.62, 0.78, 0.08).normalize();
+    const fwd = new THREE.Vector3(0.72, 0.68, 0.08).normalize();
     const up = new THREE.Vector3(-0.1, 0.05, 1).normalize();   // dorsal (+Y local) faces the camera
     const side = new THREE.Vector3().crossVectors(fwd, up).normalize();
     up.crossVectors(side, fwd).normalize();
