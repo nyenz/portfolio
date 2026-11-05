@@ -44,9 +44,9 @@ function curve(tab, x) {
 export function finHalf(x) {
   const u = (x - 0.4) / 0.6;
   if (u <= 0 || u >= 1) return 0;
-  if (u < 0.32) return 0.31 * Math.pow(Math.sin((u / 0.32) * Math.PI / 2), 0.42);   // big rounded front lobes
-  const v = (u - 0.32) / 0.68;
-  return 0.31 * Math.pow(1 - v, 0.55);                                              // near-straight edges to the tip
+  if (u < 0.42) return 0.32 * Math.pow(Math.sin((u / 0.42) * Math.PI / 2), 0.5);    // broad rounded fan
+  const v = (u - 0.42) / 0.58;
+  return 0.32 * Math.pow(Math.max(1 - Math.pow(v, 1.5), 0), 0.62);                  // full sides, short point
 }
 
 /* --------------------------------------------------------------- geometry */
@@ -434,9 +434,9 @@ const FIN_GLSL = /* glsl */`
   float finHalfGLSL(float x){
     float u = (x - 0.4) / 0.6;
     if (u <= 0.0 || u >= 1.0) return 0.0;
-    if (u < 0.32) return 0.31 * pow(sin((u / 0.32) * 1.5707963), 0.42);
-    float v = (u - 0.32) / 0.68;
-    return 0.31 * pow(max(1.0 - v, 0.0), 0.55);
+    if (u < 0.42) return 0.32 * pow(sin((u / 0.42) * 1.5707963), 0.5);
+    float v = (u - 0.42) / 0.58;
+    return 0.32 * pow(max(1.0 - pow(v, 1.5), 0.0), 0.62);
   }`;
 
 /* ----------------------------------------------------------------- squid */
