@@ -323,7 +323,7 @@ const FRAG = /* glsl */`
       float m = fbm(vec3(s * 18.0, ang * 4.0, vRest.z * 3.1));
       if (part == ${P_ARM}) {
         // arm close-ups: pale white / grey-teal tubes with patchy red-pink mottling, red only near the head
-        vec3 pale = mix(vec3(0.55, 0.62, 0.61), vec3(0.3, 0.42, 0.44), smoothstep(0.35, 0.7, m));
+        vec3 pale = mix(vec3(0.4, 0.48, 0.48), vec3(0.2, 0.3, 0.32), smoothstep(0.35, 0.7, m));
         float mott = smoothstep(0.5, 0.7, fbm(vec3(s * 26.0, ang * 6.0, vRest.z * 4.0 + 8.0)));
         base = mix(pale, vec3(0.7, 0.26, 0.32), mott * (0.45 + 0.4 * outer));
         base = mix(base, RED2 * 0.9, (1.0 - smoothstep(0.03, 0.2, f)) * 0.85);
@@ -336,11 +336,11 @@ const FRAG = /* glsl */`
         vec3 stalk = mix(vec3(0.94, 0.9, 0.9), RED2 * 0.92, band);
         stalk = mix(stalk, vec3(0.95), smoothstep(0.8, 0.9, n3(vec3(s * 160.0, ang * 10.0, 3.0))) * 0.6);
         stalk = mix(stalk, RED, 1.0 - smoothstep(0.02, 0.12, f));
-        float club = smoothstep(0.68, 0.73, f);
+        float club = smoothstep(0.78, 0.83, f);
         // club: pink-red mottled with white, the toothed edge and the tip go pale
         float mot = fbm(vec3(s * 70.0, ang * 7.0, vRest.z * 5.0 + 4.0));
         vec3 clubC = mix(vec3(0.86, 0.26, 0.36), vec3(0.95, 0.9, 0.9), smoothstep(0.42, 0.62, mot));
-        float cu = clamp((f - 0.7) / 0.3, 0.0, 1.0);
+        float cu = clamp((f - 0.8) / 0.2, 0.0, 1.0);
         clubC = mix(clubC, vec3(0.95, 0.93, 0.92), smoothstep(0.75, 1.0, cu) * 0.7 + inner * 0.25);
         base = mix(stalk, clubC, club);
         flecks = club * smoothstep(0.66, 0.74, fbm(vec3(s * 60.0, ang * 6.0, 2.0))) * 0.6;
@@ -412,6 +412,7 @@ const FRAG = /* glsl */`
     // a little subsurface: thin parts glow red when lit from behind
     if (part == ${P_FIN} || part == ${P_ARM} || part == ${P_TENT}) col += base * pow(max(dot(-N, L), 0.0), 2.0) * 0.25;
 
+    if (part == ${P_ARM}) col *= 0.62;   // arms sit in the shadow of the mantle (close-ups: dark teal)
     // torch from the cursor
     col *= 1.0 + uTorch * 0.25;
 
@@ -475,27 +476,75 @@ export function createSquid() {
   limbMesh.frustumCulled = false; finMesh.frustumCulled = false;
   body.add(limbMesh);
 
-  // hook list
+  // suckers (arm and tentacle close-ups): round beads on short stalks with a pale rim and a dark cup.
+  // arms: two zigzag rows down the oral face; tentacle clubs: four rows, biggest in the middle of the club;
+  // the last part of each stalk carries a sparse row of small ones.
   const hookList = [];
   specs.forEach((L, li) => {
     if (L.kind === 'arm') {
-      for (const side of [-1, 1]) {
-        let s = 0.06 + (side > 0 ? 0.5 : 0) * 0.02 / L.len;
-        while (s < 0.94) {
-          hookList.push({ li, s, side, len: L.len, arm: true, k: 0.8 + Math.random() * 0.35 });
-          const w = section(L, s).r * 1.08;
-          s += Math.max(0.005, w * (1.5 + Math.random() * 0.3)) / L.len;   // bead spacing
-        }
+      let s = 0.05, row = 0;
+      while (s < 0.97) {
+        hookList.push({ li, s, side: row ? 1 : -1, lat: 0.42, arm: true, k: 0.85 + Math.random() * 0.3 });
+        const w = section(L, s).r;
+        s += Math.max(0.0035, w * (0.95 + Math.random() * 0.15)) / L.len;   // one sucker per row every arm-width, rows offset
+        row ^= 1;
       }
     } else {
-      for (let s = 0.715; s < 0.985; s += 0.0145 / L.len) hookList.push({ li, s, side: L.side, len: L.len, arm: false });
+      for (let s = 0.805; s < 0.985; s += 0.0105 / L.len) for (const lat of [-0.66, -0.22, 0.22, 0.66]) {
+        hookList.push({ li, s: s + (Math.abs(lat) < 0.3 ? 0.0052 / L.len : 0), side: Math.sign(lat), lat: Math.abs(lat), arm: false, k: 0.85 + Math.random() * 0.3 });
+      }
+      for (let s = 0.62; s < 0.8; s += 0.022 / L.len) hookList.push({ li, s, side: 1, lat: 0, arm: false, stalk: true, k: 1 });
     }
   });
-  const hookGeo = buildHooks(hookList);
-  const hookMesh = new THREE.Mesh(hookGeo, mat);
-  hookMesh.frustumCulled = false;
-  body.add(hookMesh);
-  const HP = hookGeo.attributes.position.array, HN = hookGeo.attributes.normal.array;
+  const suckGeo = new THREE.SphereGeometry(1, 10, 6);
+  suckGeo.translate(0, 0.35, 0);                               // the bead sits on a short stalk above the skin
+  const suckMat = new THREE.ShaderMaterial({
+    uniforms: { uCamPos: ENVU.uCamPos, uFog: ENVU.uFog, uFogD: ENVU.uFogD, uSunD: uniforms.uSunD, uTop: ENVU.uTop },
+    vertexShader: /* glsl */`
+      varying vec3 vN, vW; varying float vY;
+      void main(){
+        vY = position.y;
+        vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
+        vW = w.xyz; vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uCamPos, uFog, uSunD, uTop; uniform float uFogD;
+      varying vec3 vN, vW; varying float vY;
+      void main(){
+        vec3 N = normalize(vN), V = normalize(uCamPos - vW), L = normalize(uSunD);
+        // pale bead with a darker cup on top and a teal-grey stalk below
+        vec3 c = mix(vec3(0.26, 0.34, 0.36), vec3(0.7, 0.76, 0.74), smoothstep(0.0, 0.7, vY));
+        c = mix(c, vec3(0.3, 0.36, 0.38), smoothstep(1.15, 1.32, vY));
+        float wrap = clamp((dot(N, L) + 0.4) / 1.4, 0.0, 1.0);
+        vec3 col = c * (0.35 + 0.85 * wrap) + uTop * 0.08;
+        vec3 H = normalize(L + V);
+        col += vec3(1.0) * pow(max(dot(N, H), 0.0), 60.0) * 0.3;   // wet glint on each bead
+        float d = length(uCamPos - vW);
+        col = mix(col, uFog, clamp(1.0 - exp(-d * uFogD * 0.55), 0.0, 0.45));
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  const suckers = new THREE.InstancedMesh(suckGeo, suckMat, hookList.length);
+  suckers.frustumCulled = false;
+  body.add(suckers);
+  const sm4 = new THREE.Matrix4(), sBasis = new THREE.Matrix4(), sScale = new THREE.Vector3();
+
+  // web: the thin skin that joins the arm bases into a cup (front close-up: dark webbed centre)
+  const WK = 14, WJ = 8;
+  const armIdx = specs.map((L, i) => (L.kind === 'arm' ? i : -1)).filter((i) => i >= 0);
+  const webGeoB = GeoBuilder();
+  armIdx.forEach(() => {
+    const st = webGeoB.pos.length / 3;
+    for (let i = 0; i <= WK; i++) for (let j = 0; j <= WJ; j++) webGeoB.v(new THREE.Vector3(), P_HEAD, i / WK, j / WJ);
+    for (let i = 0; i < WK; i++) for (let j = 0; j < WJ; j++) { const a0 = st + i * (WJ + 1) + j, c0 = a0 + WJ + 1; webGeoB.idx.push(a0, c0, a0 + 1, a0 + 1, c0, c0 + 1); }
+  });
+  const webGeo = webGeoB.build();
+  const webPos = webGeo.attributes.position.array;
+  const webMesh = new THREE.Mesh(webGeo, mat);
+  webMesh.frustumCulled = false;
+  body.add(webMesh);
+
   // per-ring frames, filled by writeTube: p(3) t(3) n(3) b(3) rW rH
   const frames = specs.map((L) => new Float32Array((L.n + 1) * 14));
 
@@ -597,8 +646,8 @@ export function createSquid() {
         const open = isT ? spread * (1.2 - s * 0.5) : spread * (1.05 - s * 0.45);   // the arms splay as a loose cone (video)
         dir.set(-1, 0, 0)
           .addScaledVector(rad, open)
-          .addScaledVector(perp, w1 * ampA * 0.16)
-          .addScaledVector(rad, w2 * ampA * 0.1 + (isT ? 0 : -0.26 * s * (0.5 + 0.5 * Math.sin(Q.ph * 0.2 + L.ph))));
+          .addScaledVector(perp, isT ? 0 : w1 * ampA * 0.16)
+          .addScaledVector(rad, (isT ? 0 : w2 * ampA * 0.1) + (isT ? 0 : -0.26 * s * (0.5 + 0.5 * Math.sin(Q.ph * 0.2 + L.ph))));
         if (!isT) {
           // each arm writhes on its own slow rhythm: bends, loops and curls (new swim video)
           const tq = Q.t, sp = Math.pow(s, 1.25);
@@ -609,21 +658,24 @@ export function createSquid() {
           dir.addScaledVector(rad, -0.18 * ss(0.55, 1.0, s));                   // tips curl inward
         }
         if (isT) {
-          // stalks run inside the arm bundle first, then trail in long lazy S-curves
-          const free = ss(0.25, 0.45, s);
-          dir.addScaledVector(perp, L.side * (0.26 + 0.34 * Math.sin(Q.ph * 0.22 + L.ph)) * free);          // the two stalks drift apart and back together
-          dir.addScaledVector(rad, 0.55 * Math.sin(Q.ph * 0.38 - s * 3.5 + L.ph) * s * free);          // clubs swing slowly, behind the beat
-          dir.addScaledVector(rad, -0.06 * (1 - free));
-          // long lazy S-curves travelling down the stalk; the clubs fold and swing
-          dir.addScaledVector(perp, 0.55 * free * s * Math.sin(Q.t * 0.5 + L.ph * 1.7 - s * 4.5));
-          dir.addScaledVector(rad, 0.45 * free * s * Math.cos(Q.t * 0.42 + L.ph - s * 3.8));
+          // soft, cohesive drift (new swim video): one long wave rolls slowly from the head to the club;
+          // both tentacles share it, offset a little, so they sway together like ribbons
+          const free = ss(0.12, 0.4, s);
+          const tq = Q.t * 0.55, off = L.side * 0.35;
+          const amp = free * (0.35 + 0.95 * s);
+          const ph1 = tq - s * 4.2 + off, ph2 = tq * 0.73 - s * 3.1 + off * 0.6 + 1.3;
+          dir.addScaledVector(perp, amp * Math.sin(ph1) + L.side * 0.12 * free);
+          dir.addScaledVector(rad, amp * 0.8 * Math.cos(ph2) - 0.05 * (1 - free));
+          // the club lags behind and folds over gently
+          const club = ss(0.7, 0.95, s);
+          dir.addScaledVector(rad, club * 0.5 * Math.sin(tq - 2.4 + off));
         }
         dir.normalize();
         P[i].copy(P[i - 1]).addScaledVector(dir, seg);
       }
       if (!ch.init) { for (let i = 0; i <= L.n; i++) ch.lag[i].copy(P[i]); ch.init = true; }
       for (let i = 1; i <= L.n; i++) {
-        const s = i / L.n, f = k1(dt, lp(30, isT ? 2.2 : 6, s));
+        const s = i / L.n, f = k1(dt, lp(30, isT ? 1.4 : 5, s));
         ch.lag[i].lerp(P[i], f);
       }
       ch.lag[0].copy(P[0]);
@@ -643,11 +695,11 @@ export function createSquid() {
       return { r, w: 1.08, h: 0.92, club: 0 };
     }
     // tentacle: slightly thicker where it leaves the head, thin stalk, leaf club
-    const cu = cl((s - 0.7) / 0.3, 0, 1);
+    const cu = cl((s - 0.8) / 0.2, 0, 1);
     const club = cu > 0 ? Math.pow(Math.sin(Math.pow(cu, 0.62) * Math.PI), 0.75) : 0;
     let r = lp(L.r0, L.r1, ss(0.0, 0.2, s));
     r *= 1 - ss(0.95, 1.0, s) * 0.7;
-    return { r, w: 1 + club * 4.6, h: 1 - club * 0.6, club };
+    return { r, w: 1 + club * 5.8, h: 1 - club * 0.6, club };
   }
 
   function writeTube(li, L, P) {
@@ -690,46 +742,64 @@ export function createSquid() {
 
   // place every hook on its limb: a small pointed blade leaning toward the tip
   const hp = new THREE.Vector3(), ht = new THREE.Vector3(), hn = new THREE.Vector3(), hb = new THREE.Vector3(), hd = new THREE.Vector3(), hv = new THREE.Vector3(), hc = new THREE.Vector3();
+  function frameAt(li, sAlong) {
+    const L = specs[li], F = frames[li];
+    const fi = sAlong * L.n, i0 = Math.min(Math.floor(fi), L.n), i1 = Math.min(i0 + 1, L.n), w = fi - i0, a = i0 * 14, b = i1 * 14;
+    const g = (o) => F[a + o] * (1 - w) + F[b + o] * w;
+    hp.set(g(0), g(1), g(2)); ht.set(g(3), g(4), g(5)).normalize(); hn.set(g(6), g(7), g(8)).normalize(); hb.set(g(9), g(10), g(11)).normalize();
+    return [g(12), g(13)];
+  }
   function writeHooks() {
     hookList.forEach((h, k) => {
-      const L = specs[h.li], F = frames[h.li];
-      const fi = h.s * L.n, i0 = Math.floor(fi), i1 = Math.min(i0 + 1, L.n), w = fi - i0, a = i0 * 14, b = i1 * 14;
-      const g = (o) => F[a + o] * (1 - w) + F[b + o] * w;
-      hp.set(g(0), g(1), g(2)); ht.set(g(3), g(4), g(5)).normalize(); hn.set(g(6), g(7), g(8)).normalize(); hb.set(g(9), g(10), g(11)).normalize();
-      const rW = g(12), rH = g(13);
-      let size, thick;
+      const [rW, rH] = frameAt(h.li, h.s);
+      let size;
       if (h.arm) {
-        // two rows on the edges of the inner face; biggest in the middle of the arm
-        // two rows on the edges of the flat inner face; hooked toward the tip like saw teeth
-        // round sucker beads in two rows on the inner face (close-ups), standing out on short stalks
-        hc.copy(hp).addScaledVector(hn, rH * 0.82).addScaledVector(hb, h.side * rW * 0.42);
-        hd.copy(hn).addScaledVector(hb, h.side * 0.35).normalize();
-        size = (0.002 + rW * 0.5) * (0.65 + 0.35 * Math.sin(Math.PI * cl((h.s - 0.02) / 0.9, 0, 1))) * h.k;
-        thick = size * 1.6;
+        hc.copy(hp).addScaledVector(hn, rH * 0.62).addScaledVector(hb, h.side * rW * h.lat);
+        hd.copy(hn).addScaledVector(hb, h.side * 0.25).normalize();
+        size = rW * 0.36 * h.k * (0.75 + 0.25 * Math.sin(Math.PI * cl(h.s / 0.8, 0, 1)));
+      } else if (h.stalk) {
+        hc.copy(hp).addScaledVector(hn, rH * 0.75);
+        hd.copy(hn);
+        size = rW * 0.42;
       } else {
-        // one row of big teeth along the edge of the club
-        const cu = (h.s - 0.7) / 0.3;
-        hc.copy(hp).addScaledVector(hb, h.side * rW * 0.86).addScaledVector(hn, rH * 0.25);
-        hd.copy(hb).multiplyScalar(h.side).addScaledVector(ht, 0.42).addScaledVector(hn, 0.15).normalize();
-        size = 0.008 + 0.04 * Math.pow(Math.sin(Math.PI * Math.pow(cl(cu, 0, 1), 0.7)), 0.8);
-        thick = size * 0.45;
+        const cu = (h.s - 0.8) / 0.2, prof = Math.sin(Math.PI * Math.pow(cl(cu, 0, 1), 0.7));
+        hc.copy(hp).addScaledVector(hn, rH * 0.55).addScaledVector(hb, h.side * rW * h.lat * 0.92);
+        hd.copy(hn).addScaledVector(hb, h.side * h.lat * 0.4).normalize();
+        size = (0.0035 + rW * 0.12 * (1.25 - h.lat)) * (0.45 + 0.55 * prof) * h.k;
       }
       hv.crossVectors(hd, ht).normalize();
-      const o = k * 15, half = size * (h.arm ? 0.8 : 0.45);
-      // base: two points along the limb, two across (thin blade)
-      const put = (n, x, y, z) => { HP[o + n * 3] = x; HP[o + n * 3 + 1] = y; HP[o + n * 3 + 2] = z; };
-      put(0, hc.x - ht.x * half, hc.y - ht.y * half, hc.z - ht.z * half);
-      put(1, hc.x - hv.x * thick * 0.5, hc.y - hv.y * thick * 0.5, hc.z - hv.z * thick * 0.5);
-      put(2, hc.x + ht.x * half, hc.y + ht.y * half, hc.z + ht.z * half);
-      put(3, hc.x + hv.x * thick * 0.5, hc.y + hv.y * thick * 0.5, hc.z + hv.z * thick * 0.5);
-      const tk = h.arm ? size * 0.38 : size;
-      put(4, hc.x + hd.x * tk, hc.y + hd.y * tk, hc.z + hd.z * tk);
-      const nrm = (n, x, y, z) => { HN[o + n * 3] = x; HN[o + n * 3 + 1] = y; HN[o + n * 3 + 2] = z; };
-      nrm(0, -ht.x, -ht.y, -ht.z); nrm(1, -hv.x, -hv.y, -hv.z); nrm(2, ht.x, ht.y, ht.z); nrm(3, hv.x, hv.y, hv.z); nrm(4, hd.x, hd.y, hd.z);
+      const tl = tmp.crossVectors(hv, hd).normalize();
+      sBasis.makeBasis(tl, hd, hv);
+      sScale.set(size, size * 0.75, size);
+      sm4.copy(sBasis).scale(sScale).setPosition(hc);
+      suckers.setMatrixAt(k, sm4);
     });
-    hookGeo.attributes.position.needsUpdate = true;
-    hookGeo.attributes.normal.needsUpdate = true;
+    suckers.instanceMatrix.needsUpdate = true;
+    writeWeb();
   }
+  const wa = new THREE.Vector3(), wb = new THREE.Vector3(), wc = new THREE.Vector3(), wd = new THREE.Vector3(), wq = new THREE.Vector3();
+  function writeWeb() {
+    // a membrane between each pair of neighbouring arms, deepest at the crown, scalloped at its edge
+    const order = armIdx.slice().sort((x, y) => specs[x].ang - specs[y].ang);
+    let o = 0;
+    order.forEach((ai, pi) => {
+      const bi = order[(pi + 1) % order.length];
+      for (let i = 0; i <= WK; i++) for (let j = 0; j <= WJ; j++) {
+        const v = j / WJ, sc = 0.17 * (1 - 0.55 * Math.sin(Math.PI * v)) * (i / WK);
+        const ra = frameAt(ai, sc)[0]; wa.copy(hp);
+        const rb = frameAt(bi, sc)[0]; wb.copy(hp);
+        wd.subVectors(wb, wa); const dl = wd.length() || 1; wd.multiplyScalar(1 / dl);
+        wa.addScaledVector(wd, ra * 0.8); wb.addScaledVector(wd, -rb * 0.8);
+        wc.lerpVectors(wa, wb, v);
+        wq.set(0, -wc.y, -wc.z); if (wq.lengthSq() > 1e-10) wq.normalize();
+        wc.addScaledVector(wq, Math.sin(Math.PI * v) * 0.09 * dl);   // sags in toward the mouth
+        webPos[o++] = wc.x; webPos[o++] = wc.y; webPos[o++] = wc.z;
+      }
+    });
+    webGeo.attributes.position.needsUpdate = true;
+    webGeo.computeVertexNormals();
+  }
+
 
   /* one step of the swim */
   function step(dt, ctx) {
@@ -823,6 +893,6 @@ export function createSquid() {
       uniforms.uSunD.value.lerp(tmp, k1(dt, 2));
     },
     flow() { return Q.speed; },
-    dispose() { bodyMesh.geometry.dispose(); eyeMesh.geometry.dispose(); fin.geo.dispose(); limbs.geo.dispose(); hookGeo.dispose(); mat.dispose(); finMat.dispose(); },
+    dispose() { bodyMesh.geometry.dispose(); eyeMesh.geometry.dispose(); fin.geo.dispose(); limbs.geo.dispose(); suckGeo.dispose(); suckMat.dispose(); webGeo.dispose(); mat.dispose(); finMat.dispose(); },
   };
 }
