@@ -78,7 +78,7 @@ renderer.setAnimationLoop((now) => {
   P.speed = Math.hypot(P.px - P.lx, P.py - P.ly) / Math.max(dt, 1e-3) / 900;
   P.lx = P.px; P.ly = P.py; P.idle += dt;
 
-  controls.update();
+  if (controls.enabled) controls.update();
   U.uCamPos.value.copy(camera.position);
   water.update(camera); shafts.update(camera);
 
