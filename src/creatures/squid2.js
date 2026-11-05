@@ -27,7 +27,7 @@ const P_MANTLE = 0, P_INNER = 1, P_HEAD = 2, P_FIN = 3, P_ARM = 4, P_TENT = 5, P
 
 /* ------------------------------------------------------------------ shape */
 // mantle half-width along the body (x = 0 at the collar rim)
-const MANTLE = [[-0.04, 0.16], [0.0, 0.166], [0.05, 0.182], [0.11, 0.193], [0.17, 0.192], [0.22, 0.182], [0.27, 0.166], [0.31, 0.149], [0.35, 0.128], [0.39, 0.1], [0.42, 0.073], [0.45, 0.046], [0.5, 0.03], [0.6, 0.022], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
+const MANTLE = [[-0.04, 0.178], [0.0, 0.186], [0.04, 0.193], [0.09, 0.194], [0.15, 0.187], [0.21, 0.172], [0.27, 0.152], [0.32, 0.13], [0.36, 0.108], [0.39, 0.088], [0.42, 0.066], [0.45, 0.044], [0.5, 0.03], [0.6, 0.022], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
 const HEAD = [[0.07, 0.075], [0.03, 0.08], [-0.02, 0.086], [-0.07, 0.09], [-0.11, 0.084], [-0.145, 0.074], [-0.175, 0.066], [-0.2, 0.058], [-0.215, 0.04], [-0.222, 0.001]].reverse();   // ascending x for curve()
 function curve(tab, x) {
   // Catmull-Rom through the profile points (smooth, no kinks -> no shading bands)
@@ -46,7 +46,7 @@ export function finHalf(x) {
   if (u <= 0 || u >= 1) return 0;
   if (u < 0.3) return 0.226 * Math.pow(Math.sin((u / 0.3) * Math.PI / 2), 0.5);   // rounded front lobes
   const v = (u - 0.3) / 0.7;
-  return 0.226 * Math.pow(1 - v, 0.6);                                              // near-straight edges to the tip
+  return 0.226 * Math.pow(1 - v, 0.5);                                              // near-straight edges to the tip
 }
 
 /* --------------------------------------------------------------- geometry */
@@ -82,7 +82,7 @@ function GeoBuilder() {
 function mantlePoint(x, a, scaleR, out) {
   const r = curve(MANTLE, x) * scaleR;
   const mantleZone = 1 - ss(0.36, 0.44, x);
-  const hRatio = lp(0.78, 1.0 + 0.14 * Math.exp(-Math.pow((x - 0.2) / 0.14, 2)), mantleZone);   // deepest mid-mantle (side photo)   // round at the collar, deeper than wide toward the rear (side photo)   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
+  const hRatio = lp(0.78, 0.86 + 0.3 * Math.exp(-Math.pow((x - 0.21) / 0.15, 2)), mantleZone);   // flatter at the collar, deep mid-mantle   // deepest mid-mantle (side photo)   // round at the collar, deeper than wide toward the rear (side photo)   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
   const ca = Math.cos(a), sa = Math.sin(a);
   const sq = 1;
   const rk = ss(0.03, 0.2, x) * mantleZone;
@@ -221,8 +221,8 @@ const FRAG = /* glsl */`
                mix(mix(h3(i+vec3(0,0,1)), h3(i+vec3(1,0,1)), f.x), mix(h3(i+vec3(0,1,1)), h3(i+vec3(1,1,1)), f.x), f.y), f.z); }
   float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * n3(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
 
-  const vec3 RED = vec3(0.86, 0.09, 0.15);
-  const vec3 RED2 = vec3(0.99, 0.27, 0.32);
+  const vec3 RED = vec3(0.9, 0.16, 0.18);
+  const vec3 RED2 = vec3(1.0, 0.36, 0.36);
   const vec3 PALE = vec3(0.92, 0.86, 0.88);
   const vec3 LIMB = vec3(0.82, 0.22, 0.3);
 
@@ -248,19 +248,27 @@ const FRAG = /* glsl */`
       // pale blotches and fine white flecks (the reference has lots of them on the back)
       float blot = smoothstep(0.55, 0.66, fbm(q * vec3(5.0, 16.0, 16.0) + 3.0)) * (0.35 + 0.65 * smoothstep(0.35, 0.7, fbm(q * 2.5 + 11.0)));
       blot = max(blot, smoothstep(0.5, 0.62, fbm(q * vec3(4.0, 22.0, 22.0) + 17.0)) * (1.0 - smoothstep(0.02, 0.12, vUv.x)) * float(part == ${P_MANTLE}));
-      float fleck = smoothstep(0.86, 0.92, n3(q * vec3(22.0, 90.0, 60.0))) * smoothstep(0.45, 0.7, fbm(q * 4.0 + 5.0));
+      // sharp white specks of many sizes, stretched along the body, clustered in patches
+      float cl1 = smoothstep(0.4, 0.68, fbm(q * vec3(3.0, 6.0, 6.0) + 5.0));
+      float sp1 = smoothstep(0.62, 0.67, fbm(q * vec3(9.0, 34.0, 34.0) + 2.0));            // irregular patches
+      float sp2 = smoothstep(0.84, 0.87, n3(q * vec3(30.0, 110.0, 110.0))) * smoothstep(0.45, 0.7, fbm(q * 7.0 + 1.0));
+      float fleck = max(sp1, sp2 * 0.9) * (0.35 + 0.65 * cl1);
       float dorsal = smoothstep(-0.05, 0.08, vL.y);
-      flecks = clamp(blot * 0.75 + fleck * (0.55 + 0.45 * dorsal), 0.0, 1.0);
+      flecks = clamp(blot * 0.85 + fleck * (0.7 + 0.3 * dorsal), 0.0, 1.0);
       // dark midline groove
       float groove = exp(-pow(vL.z / 0.009, 2.0)) * smoothstep(0.03, 0.15, vL.x) * dorsal;
       float ridge = exp(-pow((abs(vL.z) - 0.022) / 0.01, 2.0)) * smoothstep(0.05, 0.2, vL.x) * dorsal;
       base *= 1.0 - groove * 0.7;
       base = mix(base, RED2 * 1.15, ridge * 0.5);
       // pale collar rim
-      float rim = 1.0 - smoothstep(0.02, 0.1, vUv.x + (m - 0.5) * 0.035);
-      if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.02, rim * 0.92); flecks *= 1.0 - rim; }
+      float streak = fbm(vec3(vUv.y * 60.0, vUv.x * 6.0, 3.0));                          // streaks run back from the lip
+      float streak2 = smoothstep(0.45, 0.7, fbm(vec3(vUv.y * 90.0, vUv.x * 3.0, 9.0)));
+      float rim = 1.0 - smoothstep(0.01, 0.03 + 0.16 * streak2 * streak, vUv.x + (m - 0.5) * 0.02);
+      if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.05, rim * 0.95); flecks = max(flecks * (1.0 - rim), smoothstep(0.6, 0.75, streak) * (1.0 - smoothstep(0.04, 0.2, vUv.x)) * 0.8); }
       if (part == ${P_HEAD}) {
-        base = mix(base, base * vec3(1.0, 0.9, 0.95), 0.3); flecks *= 0.8;
+        float sideK = smoothstep(0.03, 0.08, abs(vL.z)) * smoothstep(0.06, -0.06, vL.y);
+        base = mix(base, vec3(0.62, 0.72, 0.66), sideK * 0.45);            // silvery green cheeks below the eye
+        flecks *= 0.8;
         float de = length(vec2(vL.x + 0.075, vL.y - 0.022)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
         base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
         base *= 1.0 - 0.25 * smoothstep(0.062, 0.05, de);                                         // the socket is a little darker
@@ -268,9 +276,9 @@ const FRAG = /* glsl */`
       }
       if (part == ${P_FUNNEL}) base = mix(RED, vec3(0.5, 0.2, 0.25), 0.4);
     } else if (part == ${P_INNER}) {
-      base = vec3(0.02, 0.035, 0.05);
-      float rim = 1.0 - smoothstep(0.0, 0.14, vUv.x);
-      base = mix(base, PALE * 1.0, rim);
+      base = vec3(0.012, 0.02, 0.03);
+      float rim = 1.0 - smoothstep(0.0, 0.05, vUv.x);
+      base = mix(base, PALE * 0.9, rim * 0.8);
       spec = 0.15;
     } else if (part == ${P_FIN}) {
       float w = max(1e-3, ${'finHalfGLSL'}(vL.x));
@@ -281,6 +289,8 @@ const FRAG = /* glsl */`
       float rib = smoothstep(0.75, 1.0, sin(atan(abs(vL.z), (vL.x - 0.38)) * 60.0 + m * 4.0)) * (1.0 - e) * 0.25;
       base *= 1.0 - rib;
       base *= 1.0 - 0.6 * exp(-pow(vL.z / 0.014, 2.0));
+      float vband = exp(-pow((abs(vL.z) - 0.05 * (1.0 - smoothstep(0.45, 1.0, vL.x))) / 0.016, 2.0)) * smoothstep(0.42, 0.5, vL.x);
+      base *= 1.0 - vband * 0.45;                                          // the dark V on the fin's midline
       // pale, see-through margin
       float margin = smoothstep(0.55, 0.9, e + (m - 0.5) * 0.22);
       base = mix(base, PALE * 1.08, margin * 0.92);
@@ -298,7 +308,7 @@ const FRAG = /* glsl */`
         vec3 back = mix(RED, RED2, smoothstep(0.35, 0.7, m));
         back = mix(back, vec3(0.9, 0.62, 0.66), smoothstep(0.5, 0.75, fbm(vec3(s * 22.0, ang * 5.0, vRest.z * 4.0 + 8.0))) * 0.6);
         vec3 face = vec3(0.74, 0.8, 0.77);                          // grey-green oral face
-        base = mix(face, back, smoothstep(-0.2, 0.45, -c) * 0.85 + 0.15);
+        base = mix(face, back, smoothstep(-0.55, 0.05, -c) * 0.9 + 0.1);   // red everywhere but a narrow pale inner face
         // two staggered rows of hook sockets along the oral face
         float row = sin(ang * 6.2831853 * 2.0);
         float ring = abs(sin(s * 165.0 + step(0.0, row) * 1.57));
@@ -310,7 +320,7 @@ const FRAG = /* glsl */`
         // white blotches on the back, pale toward the tip
         float blot = smoothstep(0.56, 0.68, fbm(vec3(s * 44.0, ang * 9.0, vRest.z * 7.0)));
         flecks = blot * (0.4 + outer * 0.6);
-        base = mix(base, vec3(0.86, 0.84, 0.85), smoothstep(0.6, 1.0, f) * 0.8);
+        base = mix(base, vec3(0.88, 0.8, 0.82), smoothstep(0.7, 1.0, f) * 0.7);
       } else {
         // stalk: crisp red / white bands, red near the base; club: pale with pink blotches
         float bandN = n3(vec3(floor(s * 52.0), vRest.z, 1.0));
@@ -327,11 +337,11 @@ const FRAG = /* glsl */`
         base = mix(stalk, clubC, club);
         flecks = club * smoothstep(0.66, 0.74, fbm(vec3(s * 60.0, ang * 6.0, 2.0))) * 0.6;
       }
-      spec = 0.55; gloss = 36.0;
+      spec = 0.32; gloss = 30.0;
     } else if (part == ${P_HOOK}) {
       // hook: bone white, a little pink at the root, glossy
       base = mix(vec3(0.86, 0.6, 0.64), vec3(0.97, 0.96, 0.93), smoothstep(0.0, 0.7, vRest.y));
-      spec = 0.9; gloss = 60.0;
+      spec = 0.5; gloss = 50.0;
     } else { // eye
       vec3 c = vec3(-0.075, 0.022, sign(vL.z) * 0.07);
       vec3 d = normalize(vL - c);
@@ -354,26 +364,26 @@ const FRAG = /* glsl */`
       float under = part == ${P_FIN} ? smoothstep(0.05, -0.15, dot(V, normalize(vN))) : smoothstep(0.3, -0.4, ny);
       if (part == ${P_FIN}) under *= 1.0 - smoothstep(0.5, 0.85, clamp(abs(vL.z) / max(1e-3, finHalfGLSL(vL.x)), 0.0, 1.0));
       if (part == ${P_ARM} || part == ${P_TENT}) under *= 0.85;
-      base = mix(base, vec3(0.025, 0.045, 0.055) + base * vec3(0.12, 0.05, 0.06), under * 0.95);
+      base = mix(base, vec3(0.025, 0.07, 0.09) + base * vec3(0.06, 0.02, 0.03), under * 0.95);
       flecks *= 1.0 - under * 0.9;
       underK = under;
     }
     // white flecks are brighter and a bit glossy
-    base = mix(base, PALE * 1.05, flecks * 0.8);
+    base = mix(base, vec3(1.0, 0.97, 0.96), flecks * 0.95);   // the marks are crisp near-white
 
     // light: sun from above through water, dark blue-green belly (counter-shading)
     vec3 L = normalize(uSunD);
     float wrap = clamp((dot(N, L) + 0.35) / 1.35, 0.0, 1.0);
     float up = N.y * 0.5 + 0.5;
-    vec3 amb = mix(uDeepTint * 1.6, uTop * 0.3 + vec3(0.12, 0.1, 0.1), up);
-    vec3 col = base * (amb * 0.95 + vec3(1.0, 0.96, 0.92) * wrap * 1.25 + 0.12);   // the skin glows a little (the reference is luminous)
+    vec3 amb = mix(uDeepTint * 1.6, uTop * 0.25 + vec3(0.1, 0.07, 0.07), up);
+    vec3 col = base * (amb * 0.95 + vec3(1.0, 0.95, 0.9) * wrap * 1.35) + base * base * 0.22;   // self-coloured glow keeps it saturated   // the skin glows a little (the reference is luminous)
     // belly falls into a dark teal shadow
     float belly = smoothstep(0.1, -0.5, N.y);
     col = mix(col, uDeepTint * 0.9 + base * 0.12, belly * 0.3);
 
     // specular + glitter: tiny specks that twinkle as the squid turns (the "shine specs")
     vec3 H = normalize(L + V);
-    float sp = pow(max(dot(N, H), 0.0), gloss) * spec * 1.4 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.3;
+    float sp = pow(max(dot(N, H), 0.0), gloss) * spec * 1.4 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1;
     float glit = 0.0;
     if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
       float g = n3(q * 140.0 + vec3(0.0, 0.0, floor(dot(V, vec3(3.1, 2.3, 1.7)) * 6.0)));
@@ -393,7 +403,8 @@ const FRAG = /* glsl */`
     // water fog
     float d = length(uCamPos - vW);
     float f = 1.0 - exp(-d * uFogD * 0.55);
-    col = mix(col, uFog, clamp(f, 0.0, 0.75));
+    col = mix(col, uFog, clamp(f, 0.0, 0.45));
+    if (part == ${P_INNER}) col *= 0.35;   // the mantle cavity stays dark
     gl_FragColor = vec4(col, alpha);
   }`;
 
@@ -403,7 +414,7 @@ const FIN_GLSL = /* glsl */`
     if (u <= 0.0 || u >= 1.0) return 0.0;
     if (u < 0.3) return 0.226 * pow(sin((u / 0.3) * 1.5707963), 0.5);
     float v = (u - 0.3) / 0.7;
-    return 0.226 * pow(max(1.0 - v, 0.0), 0.6);
+    return 0.226 * pow(max(1.0 - v, 0.0), 0.5);
   }`;
 
 /* ----------------------------------------------------------------- squid */
@@ -514,7 +525,7 @@ export function createSquid() {
         const lift = (wave * amp * 0.17 * Math.pow(e, 1.25) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
         // a soft cup across the fin (edges slightly up when relaxed)
         const lobe = (1 - ss(0.5, 0.78, x)) * e * e;        // the front lobes cup and open with the beat
-        const cup = -0.05 * e * e + 0.02 * e * e * (1 - Q.pulse) + 0.06 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
+        const cup = -0.02 * e * e + 0.02 * e * e * (1 - Q.pulse) + 0.06 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
         // the tip flicks a little
         const tip = Math.sin(ph - 6.5) * 0.012 * ss(0.85, 1, x) * amp;
         const scal = 1 + 0.035 * Math.sin(x * 95 + ph * 0.5) * ss(0.75, 1, e);   // ruffled, scalloped margin

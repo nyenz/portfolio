@@ -72,7 +72,9 @@ let last = performance.now(), time = 0;
 renderer.setAnimationLoop((now) => {
   const dt = Math.min((now - last) / 1000, 1 / 20);
   last = now; time += dt;
-  updateEnv(380);
+  updateEnv(850);   // dark open water like the reference viewer
+  U.uTop.value.set(0x0f4f5e); U.uMid.value.set(0x05303f); U.uDeep.value.set(0x011720); U.uFog.value.set(0x042833);
+  U.uTorch.value = 0.04;
   U.uTime.value = time;
   U.uPx.value = innerHeight * dpr / (2 * Math.tan((camera.fov * Math.PI) / 360));
   P.speed = Math.hypot(P.px - P.lx, P.py - P.ly) / Math.max(dt, 1e-3) / 900;
