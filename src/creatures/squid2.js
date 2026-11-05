@@ -27,8 +27,8 @@ const P_MANTLE = 0, P_INNER = 1, P_HEAD = 2, P_FIN = 3, P_ARM = 4, P_TENT = 5, P
 
 /* ------------------------------------------------------------------ shape */
 // mantle half-width along the body (x = 0 at the collar rim)
-const MANTLE = [[-0.04, 0.236], [-0.004, 0.228], [0.03, 0.232], [0.1, 0.232], [0.2, 0.202], [0.28, 0.155], [0.34, 0.104], [0.38, 0.064], [0.41, 0.038], [0.45, 0.029], [0.6, 0.021], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
-const HEAD = [[0.07, 0.11], [0.02, 0.118], [-0.03, 0.134], [-0.078, 0.14], [-0.125, 0.122], [-0.175, 0.096], [-0.22, 0.078], [-0.258, 0.066], [-0.282, 0.046], [-0.292, 0.001]].reverse();   // ascending x for curve()
+const MANTLE = [[-0.04, 0.254], [-0.004, 0.252], [0.05, 0.246], [0.13, 0.226], [0.21, 0.194], [0.28, 0.154], [0.33, 0.116], [0.37, 0.08], [0.4, 0.05], [0.45, 0.029], [0.6, 0.021], [0.8, 0.013], [0.95, 0.006], [1.0, 0.002]];
+const HEAD = [[0.07, 0.11], [0.02, 0.118], [-0.03, 0.134], [-0.078, 0.14], [-0.125, 0.122], [-0.175, 0.094], [-0.215, 0.08], [-0.25, 0.07], [-0.274, 0.052], [-0.288, 0.001]].reverse();   // ascending x for curve()
 function curve(tab, x) {
   // Catmull-Rom through the profile points (smooth, no kinks -> no shading bands)
   if (x <= tab[0][0]) return tab[0][1];
@@ -46,7 +46,7 @@ export function finHalf(x) {
   if (u <= 0 || u >= 1) return 0;
   if (u < 0.34) return 0.262 * Math.pow(Math.sin((u / 0.34) * Math.PI / 2), 0.38);
   const v = (u - 0.34) / 0.66;
-  return 0.262 * Math.pow(1 - v, 0.62);
+  return 0.262 * Math.pow(Math.max(1 - Math.pow(v, 1.7), 0), 0.8);
 }
 
 /* --------------------------------------------------------------- geometry */
@@ -82,7 +82,7 @@ function GeoBuilder() {
 function mantlePoint(x, a, scaleR, out) {
   const r = curve(MANTLE, x) * scaleR;
   const mantleZone = 1 - ss(0.36, 0.44, x);
-  const hRatio = lp(0.78, lp(0.66, 0.9, ss(-0.01, 0.2, x)), mantleZone);   // flat and wide at the collar, round behind           // tail rod is flatter
+  const hRatio = lp(0.78, lp(0.64, 1.02, ss(-0.02, 0.17, x)), mantleZone);   // wide and flat at the collar, deep and round behind it   // flat and wide at the collar, round behind           // tail rod is flatter
   const ca = Math.cos(a), sa = Math.sin(a);
   const sq = 1 + 0.06 * Math.pow(Math.abs(Math.sin(2 * a)), 1.5) * mantleZone; // squarer shoulders
   const groove = 1 - (0.06 + 0.18 * (1 - mantleZone)) * Math.exp(-(a * a) / 0.018) * ss(0.02, 0.12, x);
@@ -370,7 +370,7 @@ const FIN_GLSL = /* glsl */`
     if (u <= 0.0 || u >= 1.0) return 0.0;
     if (u < 0.34) return 0.262 * pow(sin((u / 0.34) * 1.5707963), 0.38);
     float v = (u - 0.34) / 0.66;
-    return 0.262 * pow(max(1.0 - v, 0.0), 0.62);
+    return 0.262 * pow(max(1.0 - pow(v, 1.7), 0.0), 0.8);
   }`;
 
 /* ----------------------------------------------------------------- squid */
@@ -408,7 +408,7 @@ export function createSquid() {
     const ang = ((i + 0.5) / ARMN) * TAU;          // around the crown, 0 = top
     const pair = Math.min(i, ARMN - 1 - i);         // 0 top .. 3 bottom
     const len = [0.5, 0.56, 0.62, 0.58][pair];
-    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 72, r0: 0.027, r1: 0.0015, ph: i * 1.7 });
+    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 72, r0: 0.026, r1: 0.0015, ph: i * 1.7 });
   }
   for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.2, len: 1.3, n: 140, r0: 0.014, r1: 0.007, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
@@ -474,10 +474,11 @@ export function createSquid() {
         const lift = (wave * amp * 0.17 * Math.pow(e, 1.25) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
         // a soft cup across the fin (edges slightly up when relaxed)
         const lobe = (1 - ss(0.5, 0.78, x)) * e * e;        // the front lobes cup and open with the beat
-        const cup = 0.02 * e * e * (1 - Q.pulse) + 0.045 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
+        const cup = -0.05 * e * e + 0.02 * e * e * (1 - Q.pulse) + 0.06 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
         // the tip flicks a little
         const tip = Math.sin(ph - 6.5) * 0.012 * ss(0.85, 1, x) * amp;
-        const zz = z * (1 - fold * 0.12 * e);
+        const scal = 1 + 0.035 * Math.sin(x * 95 + ph * 0.5) * ss(0.75, 1, e);   // ruffled, scalloped margin
+        const zz = z * (1 - fold * 0.12 * e) * scal * (1 - 0.06 * e * e * (0.6 + 0.4 * Math.cos(ph - 0.6)));
         FP[ri] = x; FP[ri + 1] = 0.018 + 0.02 * ss(0.3, 0.5, x) + lift + cup + tip; FP[ri + 2] = zz;
         k++;
       }
@@ -509,8 +510,8 @@ export function createSquid() {
       const isT = L.kind === 'tent';
       const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
       // roots packed on the crown of the head (tentacles sit just inside the ventral arms)
-      const rootR = isT ? 0.026 : 0.05;
-      P[0].set(isT ? -0.245 : -0.255, ca * rootR * 0.9 + 0.012, sa * rootR);
+      const rootR = isT ? 0.022 : 0.05;
+      P[0].set(isT ? -0.25 : -0.262, ca * rootR * 0.9 + 0.012, sa * rootR);
       const rad = tA.set(0, ca, sa);
       const perp = tB.set(0, -sa, ca);
       const seg = L.len / L.n;
@@ -560,7 +561,7 @@ export function createSquid() {
   function section(L, s) {
     if (L.kind === 'arm') {
       // thick webbed base, holds its width for the first third, then a long taper to a fine point
-      const r = L.r0 * Math.pow(1 - s, 1.05) * (1 + 0.25 * (1 - ss(0.0, 0.1, s))) + L.r1;
+      const r = L.r0 * Math.pow(1 - s, 1.05) * (0.85 + 0.25 * (1 - ss(0.04, 0.16, s)) * ss(0.0, 0.04, s)) + L.r1;   // roots tuck into the head, full width just outside it
       return { r, w: 1.12, h: 0.86, club: 0 };
     }
     // tentacle: slightly thicker where it leaves the head, thin stalk, leaf club
