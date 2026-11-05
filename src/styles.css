@@ -502,3 +502,8 @@ body.pz-open .meter, body.pz-open #content, body.pz-open .scroll-hint { opacity:
 
 #core { flex-direction: column; }
 #presentation:not(.is-open) { display: none; }
+
+/* links to the per-item study pages */
+.study-link { display: inline-flex; align-items: center; gap: 12px; margin-top: 26px; padding: 12px 18px 12px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(2,16,24,.35); backdrop-filter: blur(8px); color: var(--ink); text-decoration: none; font: 11px var(--f-mono); letter-spacing: .16em; text-transform: uppercase; pointer-events: auto; transition: border-color .3s, background .3s; }
+.study-link span { padding: 6px 10px; border-radius: 999px; background: var(--accent); color: #1a0604; }
+.study-link:hover { border-color: var(--accent); background: rgba(255,122,107,.12); }
