@@ -309,7 +309,10 @@ const FRAG = /* glsl */`
       // pale, see-through margin
       float rag = fbm(vec3(vL.x * 40.0, vL.z * 6.0, 2.0));
       float margin = smoothstep(0.62, 0.9, e + (m - 0.5) * 0.3 + (rag - 0.5) * 0.35);
-      base *= 1.0 - 0.75 * exp(-pow(vL.z / 0.007, 2.0)) * smoothstep(0.5, 0.6, vL.x) * (1.0 - smoothstep(0.88, 0.98, vL.x));   // the dark slit
+      base *= 1.0 - 0.9 * exp(-pow(vL.z / 0.011, 2.0)) * smoothstep(0.46, 0.56, vL.x) * (1.0 - smoothstep(0.9, 0.98, vL.x));   // the deep dark slit
+      float vc = abs(vL.z) - (vL.x - 0.5) * 0.35;                                       // creases angled back from the slit
+      float crease = exp(-pow(fract(vc * 22.0) - 0.5, 2.0) / 0.006) * smoothstep(0.5, 0.6, vL.x) * (1.0 - e) * smoothstep(0.02, 0.06, abs(vL.z));
+      base *= 1.0 - crease * 0.35;
       base = mix(base, PALE * 1.08, margin * 0.92);
       float blot = smoothstep(0.68, 0.76, fbm(q * vec3(8.0, 8.0, 12.0) + 9.0));
       flecks = blot * 0.7 * (1.0 - margin);
