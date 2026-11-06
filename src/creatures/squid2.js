@@ -504,7 +504,7 @@ export function createSquid() {
       while (s < 0.97) {
         hookList.push({ li, s, side: row ? 1 : -1, lat: 0.42, arm: true, k: 0.85 + Math.random() * 0.3 });
         const w = section(L, s).r;
-        s += Math.max(0.003, w * (0.62 + Math.random() * 0.1)) / L.len;   // one sucker per row every arm-width, rows offset
+        s += Math.max(0.0025, w * (0.46 + Math.random() * 0.08)) / L.len;   // one sucker per row every arm-width, rows offset
         row ^= 1;
       }
     } else {
@@ -535,7 +535,7 @@ export function createSquid() {
         vec3 c = mix(vec3(0.05, 0.09, 0.1), vec3(0.42, 0.52, 0.5), smoothstep(0.0, 0.7, vY));
         c = mix(c, vec3(0.08, 0.12, 0.13), smoothstep(1.15, 1.32, vY));
         float wrap = clamp((dot(N, L) + 0.4) / 1.4, 0.0, 1.0);
-        vec3 col = c * (0.35 + 0.85 * wrap) + uTop * 0.08;
+        vec3 col = c * (0.75 + 0.6 * wrap) + uTop * 0.1;   // beads catch light all round, so they read as whole balls
         vec3 H = normalize(L + V);
         col += vec3(1.0) * pow(max(dot(N, H), 0.0), 60.0) * 0.3;   // wet glint on each bead
         float d = length(uCamPos - vW);
@@ -770,7 +770,7 @@ export function createSquid() {
       if (h.arm) {
         hc.copy(hp).addScaledVector(hn, rH * 0.62).addScaledVector(hb, h.side * rW * h.lat);
         hd.copy(hn).addScaledVector(hb, h.side * 0.25).normalize();
-        size = rW * 0.36 * h.k * (0.75 + 0.25 * Math.sin(Math.PI * cl(h.s / 0.8, 0, 1)));
+        size = rW * 0.42 * h.k * (0.75 + 0.25 * Math.sin(Math.PI * cl(h.s / 0.8, 0, 1)));
       } else if (h.stalk) {
         hc.copy(hp).addScaledVector(hn, rH * 0.75);
         hd.copy(hn);
