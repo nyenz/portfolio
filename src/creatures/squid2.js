@@ -432,7 +432,7 @@ const FRAG = /* glsl */`
 
    // arms sit in the shadow of the mantle (close-ups: dark teal)
     if (part == ${P_ARM} || part == ${P_TENT}) {
-      float far = smoothstep(1.8, 6.0, length(uCamPos - vW));
+      float far = smoothstep(3.0, 8.0, length(uCamPos - vW));
       col = mix(col, vec3(0.42, 0.42, 0.44) * (0.6 + 0.6 * wrap) + col * 0.4, far * 0.75);
     }
     // torch from the cursor
