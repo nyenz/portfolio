@@ -122,8 +122,8 @@ function buildBody() {
   }, P_HEAD, true);
   // funnel: a short cone under the head, coming out of the collar
   B.grid(14, 18, (u, v, o) => {
-    const x = lp(0.06, -0.075, u), r = lp(0.048, 0.02, Math.pow(u, 0.8)) * (1 + 0.15 * ss(0.85, 1, u)), a = (v - 0.5) * TAU;
-    o.set(x, -0.098 + u * 0.018 + Math.cos(a) * r * 0.72, Math.sin(a) * r * 1.1);
+    const x = lp(0.06, -0.135, u), r = lp(0.05, 0.024, Math.pow(u, 0.7)) * (1 + 0.22 * ss(0.85, 1, u)), a = (v - 0.5) * TAU;
+    o.set(x, -0.1 + u * 0.004 + Math.cos(a) * r * 0.8, Math.sin(a) * r * 1.05);
   }, P_FUNNEL, true);
   return B.build();
 }
@@ -295,7 +295,7 @@ const FRAG = /* glsl */`
         base = mix(base, mix(vec3(0.32, 0.46, 0.42), vec3(0.62, 0.72, 0.66), mot), smoothstep(0.11, 0.07, de) * 0.75);   // mottled silvery-green skin around the eye   // silvery-green skin around the eye                                         // the socket is a little darker
         flecks *= smoothstep(0.05, 0.08, de);
       }
-      if (part == ${P_FUNNEL}) base = mix(RED, vec3(0.5, 0.2, 0.25), 0.4);
+      if (part == ${P_FUNNEL}) { base = mix(vec3(0.3, 0.33, 0.32), vec3(0.45, 0.14, 0.17), smoothstep(0.4, 0.7, m) * 0.6); flecks *= 0.3; }   // pale grey funnel tube
     } else if (part == ${P_INNER}) {
       base = vec3(0.012, 0.02, 0.03);
       float rim = 1.0 - smoothstep(0.0, 0.05, vUv.x);
