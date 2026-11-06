@@ -132,9 +132,9 @@ function buildEyes() {
   const B = GeoBuilder();
   for (const side of [-1, 1]) {
     B.grid(18, 24, (u, v, o) => {
-      const th = u * Math.PI, ph = v * TAU, r = 0.068;
+      const th = u * Math.PI, ph = v * TAU, r = 0.072;
       // the eye looks sideways (local z), u=0 at the pupil
-      o.set(Math.sin(th) * Math.cos(ph) * r - 0.095, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.026, side * (0.1 + Math.cos(th) * r * 0.28));
+      o.set(Math.sin(th) * Math.cos(ph) * r - 0.095, Math.sin(th) * Math.sin(ph) * r * 0.95 + 0.026, side * (0.056 + Math.cos(th) * r));
     }, P_EYE, side < 0);
   }
   return B.build();
@@ -286,7 +286,7 @@ const FRAG = /* glsl */`
         float sideK = smoothstep(0.03, 0.08, abs(vL.z)) * smoothstep(0.08, -0.06, vL.y);
         float hm = fbm(vec3(vL.x * 45.0, vL.y * 45.0, vL.z * 25.0) + 3.0);
         vec3 green = mix(vec3(0.05, 0.11, 0.1), vec3(0.22, 0.32, 0.28), smoothstep(0.4, 0.7, hm));
-        base = mix(base, green, (0.35 + 0.5 * sideK) * smoothstep(0.38, 0.6, hm + sideK * 0.3));   // red and green-silver mottling
+        base = mix(base, green, (0.5 + 0.45 * sideK) * smoothstep(0.32, 0.55, hm + sideK * 0.35));   // red and green-silver mottling
         flecks *= 0.8;
         float de = length(vec2(vL.x + 0.095, vL.y - 0.026)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
         base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
@@ -366,8 +366,8 @@ const FRAG = /* glsl */`
       base = mix(vec3(0.45, 0.55, 0.56), vec3(0.82, 0.86, 0.85), smoothstep(0.0, 0.8, vRest.y));
       spec = 0.5; gloss = 50.0;
     } else { // eye
-      vec3 c = vec3(-0.095, 0.026, sign(vL.z) * 0.1);
-      vec3 d = normalize((vL - c) / vec3(0.068, 0.0646, 0.019));   // undo the eyeball's flattening
+      vec3 c = vec3(-0.095, 0.026, sign(vL.z) * 0.056);
+      vec3 d = normalize((vL - c) / vec3(0.072, 0.0684, 0.072));   // undo the eyeball's flattening
       vec3 look = normalize(vec3(uEye.x * 0.25, uEye.y * 0.18, sign(vL.z)));
       float k = dot(d, look);
       // red lid -> silver ring -> green-grey iris -> big black pupil
@@ -376,14 +376,17 @@ const FRAG = /* glsl */`
       float ang = atan(dot(d, cross(look, tng)), dot(d, tng));
       float fib = n3(vec3(ang * 9.0, k * 30.0, 1.0)) * 0.6 + 0.2 * sin(ang * 46.0 + k * 20.0);
       vec3 lid = mix(vec3(0.3, 0.38, 0.34), vec3(0.55, 0.22, 0.24), smoothstep(0.55, 0.7, n3(d * 18.0)));   // mottled green-grey and red lid
-      vec3 irisC = mix(vec3(0.16, 0.3, 0.32), vec3(0.38, 0.55, 0.56), fib * 0.6);
-      irisC = mix(irisC, vec3(0.7, 0.82, 0.8), smoothstep(0.03, 0.0, abs(k - 0.56)) * 0.8 + smoothstep(0.03, 0.0, abs(k - 0.8)) * 0.4);   // concentric rings
+      vec3 irisC = mix(vec3(0.09, 0.24, 0.25), vec3(0.28, 0.48, 0.47), fib * 0.7);   // linear teal
+      irisC = mix(irisC, vec3(0.35, 0.48, 0.46), smoothstep(0.03, 0.0, abs(k - 0.45)) * 0.8 + smoothstep(0.025, 0.0, abs(k - 0.62)) * 0.6 + smoothstep(0.02, 0.0, abs(k - 0.76)) * 0.5);   // concentric rings
       vec3 skin = mix(RED * 0.8, vec3(0.34, 0.48, 0.44), smoothstep(0.4, 0.65, n3(d * 22.0)));   // the eyeball's edge is covered by mottled skin
-      base = mix(skin, vec3(0.1, 0.2, 0.2), smoothstep(0.5, 0.56, k));           // dark rim around the iris
-      base = mix(base, irisC, smoothstep(0.6, 0.66, k));                            // silver-teal iris
-      base = mix(base, vec3(0.002, 0.003, 0.004), smoothstep(0.84, 0.86, k));
+      base = mix(skin, vec3(0.03, 0.06, 0.06), smoothstep(0.22, 0.28, k));           // dark rim around the iris
+      base = mix(base, irisC, smoothstep(0.32, 0.4, k));                            // silver-teal iris
+      base = mix(base, vec3(0.002, 0.003, 0.004), smoothstep(0.8, 0.83, k));
       if (k > 0.86) spec = 0.6;      // black pupil
       spec = 2.2; gloss = 180.0;
+      // a bright window reflection on the cornea, fixed toward the light
+      float glintE = smoothstep(0.985, 0.995, dot(normalize(vN), normalize(uSunD + vec3(0.0, 0.3, 0.0))));
+      base += vec3(0.8) * glintE;
     }
 
     float underK = 0.0;
