@@ -45,6 +45,7 @@ scene.add(squid.group);
 const post = createPost(renderer, scene, camera, cfg);
 LENS.uniforms.uLid.value = 1;
 LENS.uniforms.uDark.value = 0;
+LENS.uniforms.uCA.value = 0.0035;   // a little colour split and softness at the edges
 
 // pointer (for the squid's curiosity and nerves)
 const P = { x: 0, y: 0, px: innerWidth / 2, py: innerHeight / 2, speed: 0, idle: 0, lx: 0, ly: 0 };
@@ -100,7 +101,8 @@ renderer.setAnimationLoop((now) => {
   });
   U.uFlow.value.y -= squid.flow() * dt * 0.55;
 
-  post.bloom.strength = Math.max(envState.bloom, 0.85) * (isTouch ? 0.85 : 1);   // soft glow like the reference
+  post.bloom.strength = Math.max(envState.bloom, 0.95) * (isTouch ? 0.85 : 1);
+  post.bloom.radius = 0.85; post.bloom.threshold = 0.38;   // soft glow that blurs edges (the reference video is soft)   // soft glow like the reference
   LENS.uniforms.uTime.value = time;
   post.composer.render(dt);
 });

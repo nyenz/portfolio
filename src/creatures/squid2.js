@@ -416,7 +416,7 @@ const FRAG = /* glsl */`
 
     // specular + glitter: tiny specks that twinkle as the squid turns (the "shine specs")
     vec3 H = normalize(L + V);
-    float sp = pow(max(dot(N, H), 0.0), gloss) * spec * 1.4 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1 * (part == ${P_EYE} ? 0.0 : 1.0);
+    float sp = pow(max(dot(N, H), 0.0), gloss * 0.6) * spec * 1.1 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1 * (part == ${P_EYE} ? 0.0 : 1.0);
     float glit = 0.0;
     if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
       float g = n3(q * 140.0 + vec3(0.0, 0.0, floor(dot(V, vec3(3.1, 2.3, 1.7)) * 6.0)));
