@@ -351,11 +351,11 @@ const FRAG = /* glsl */`
         vec3 stalk = mix(vec3(0.34, 0.36, 0.36), RED2 * 0.55, band);   // linear: pale grey and red bands
         stalk = mix(stalk, vec3(0.5), smoothstep(0.8, 0.9, n3(vec3(s * 160.0, ang * 10.0, 3.0))) * 0.6);
         stalk = mix(stalk, RED, 1.0 - smoothstep(0.02, 0.12, f));
-        float club = smoothstep(0.78, 0.83, f);
+        float club = smoothstep(0.81, 0.86, f);
         // club: pink-red mottled with white, the toothed edge and the tip go pale
         float mot = fbm(vec3(s * 70.0, ang * 7.0, vRest.z * 5.0 + 4.0));
         vec3 clubC = mix(vec3(0.5, 0.08, 0.12), vec3(0.4, 0.42, 0.42), smoothstep(0.42, 0.62, mot));
-        float cu = clamp((f - 0.8) / 0.2, 0.0, 1.0);
+        float cu = clamp((f - 0.83) / 0.17, 0.0, 1.0);
         clubC = mix(clubC, vec3(0.45, 0.46, 0.45), smoothstep(0.75, 1.0, cu) * 0.7 + inner * 0.25);
         base = mix(stalk, clubC, club);
         flecks = club * smoothstep(0.66, 0.74, fbm(vec3(s * 60.0, ang * 6.0, 2.0))) * 0.6;
@@ -512,7 +512,7 @@ export function createSquid() {
         row ^= 1;
       }
     } else {
-      for (let s = 0.805; s < 0.985; s += 0.0105 / L.len) for (const lat of [-0.66, -0.22, 0.22, 0.66]) {
+      for (let s = 0.835; s < 0.985; s += 0.0095 / L.len) for (const lat of [-0.66, -0.22, 0.22, 0.66]) {
         hookList.push({ li, s: s + (Math.abs(lat) < 0.3 ? 0.0052 / L.len : 0), side: Math.sign(lat), lat: Math.abs(lat), arm: false, k: 0.85 + Math.random() * 0.3 });
       }
       for (let s = 0.62; s < 0.8; s += 0.022 / L.len) hookList.push({ li, s, side: 1, lat: 0, arm: false, stalk: true, k: 1 });
@@ -713,11 +713,12 @@ export function createSquid() {
       return { r, w: 1.0, h: 0.96, club: 0 };
     }
     // tentacle: slightly thicker where it leaves the head, thin stalk, leaf club
-    const cu = cl((s - 0.8) / 0.2, 0, 1);
+    const cu = cl((s - 0.83) / 0.17, 0, 1);
     const club = cu > 0 ? Math.pow(Math.sin(Math.pow(cu, 0.62) * Math.PI), 0.75) : 0;
     let r = lp(L.r0, L.r1, ss(0.0, 0.2, s));
     r *= 1 - ss(0.95, 1.0, s) * 0.7;
-    return { r, w: 1 + club * 5.8, h: 1 - club * 0.6, club };
+    const teeth = 1 + 0.16 * club * Math.pow(0.5 + 0.5 * Math.sin(s * 900), 3);   // toothed edge
+    return { r, w: (1 + club * 7.5) * teeth, h: 1 - club * 0.62, club };
   }
 
   function writeTube(li, L, P) {
@@ -780,7 +781,7 @@ export function createSquid() {
         hd.copy(hn);
         size = rW * 0.42;
       } else {
-        const cu = (h.s - 0.8) / 0.2, prof = Math.sin(Math.PI * Math.pow(cl(cu, 0, 1), 0.7));
+        const cu = (h.s - 0.83) / 0.17, prof = Math.sin(Math.PI * Math.pow(cl(cu, 0, 1), 0.7));
         hc.copy(hp).addScaledVector(hn, rH * 0.55).addScaledVector(hb, h.side * rW * h.lat * 0.92);
         hd.copy(hn).addScaledVector(hb, h.side * h.lat * 0.4).normalize();
         size = (0.0035 + rW * 0.12 * (1.25 - h.lat)) * (0.45 + 0.55 * prof) * h.k;
