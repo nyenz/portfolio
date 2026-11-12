@@ -28,7 +28,7 @@ const P_MANTLE = 0, P_INNER = 1, P_HEAD = 2, P_FIN = 3, P_ARM = 4, P_TENT = 5, P
 /* ------------------------------------------------------------------ shape */
 // mantle half-width along the body (x = 0 at the collar rim)
 const MANTLE = [[-0.06, 0.186], [-0.03, 0.196], [0.0, 0.206], [0.05, 0.22], [0.1, 0.23], [0.16, 0.235], [0.22, 0.232], [0.28, 0.217], [0.33, 0.188], [0.37, 0.142], [0.4, 0.092], [0.425, 0.052], [0.45, 0.03], [0.5, 0.024], [0.6, 0.02], [0.8, 0.012], [0.95, 0.006], [1.0, 0.002]];
-const HEAD = [[0.07, 0.078], [0.03, 0.082], [0.0, 0.088], [-0.04, 0.104], [-0.08, 0.118], [-0.12, 0.116], [-0.17, 0.106], [-0.22, 0.092], [-0.27, 0.078], [-0.31, 0.064], [-0.335, 0.04], [-0.345, 0.001]].reverse();   // narrow neck in the collar, widest at the eyes   // ascending x for curve()   // ascending x for curve()
+const HEAD = [[0.07, 0.078], [0.03, 0.082], [0.0, 0.088], [-0.04, 0.104], [-0.08, 0.118], [-0.12, 0.116], [-0.17, 0.106], [-0.22, 0.096], [-0.27, 0.092], [-0.31, 0.09], [-0.335, 0.074], [-0.345, 0.001]].reverse();   // narrow neck in the collar, widest at the eyes   // ascending x for curve()   // ascending x for curve()
 function curve(tab, x) {
   // Catmull-Rom through the profile points (smooth, no kinks -> no shading bands)
   if (x <= tab[0][0]) return tab[0][1];
@@ -206,8 +206,8 @@ const VERT = /* glsl */`
     // mantle breathing: the mantle squeezes on each push, the rim flares on the refill
     if (aPart < 1.5) {
       float zone = (1.0 - smoothstep(0.30, 0.43, p.x));
-      float rim = 1.0 - smoothstep(0.0, 0.07, p.x);
-      float k = 1.0 - uPulse * 0.14 * zone + uFlare * 0.07 * rim;
+      float rim = 1.0 - smoothstep(-0.05, 0.36, p.x);
+      float k = 1.0 - uPulse * 0.12 * zone + uFlare * 0.5 * rim * rim;   // the collar opens like a bell (swim video)
       p.yz *= k;
     }
     vRest = aRest; vPart = aPart; vUv = aUv;
@@ -231,8 +231,8 @@ const FRAG = /* glsl */`
                mix(mix(h3(i+vec3(0,0,1)), h3(i+vec3(1,0,1)), f.x), mix(h3(i+vec3(0,1,1)), h3(i+vec3(1,1,1)), f.x), f.y), f.z); }
   float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * n3(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
 
-  const vec3 RED = vec3(0.9, 0.16, 0.18);
-  const vec3 RED2 = vec3(1.0, 0.36, 0.36);
+  const vec3 RED = vec3(0.74, 0.085, 0.11);
+  const vec3 RED2 = vec3(0.92, 0.2, 0.22);
   const vec3 PALE = vec3(0.92, 0.86, 0.88);
   const vec3 LIMB = vec3(0.82, 0.22, 0.3);
 
@@ -248,7 +248,7 @@ const FRAG = /* glsl */`
       N = normalize(N - (g - N * dot(g, N)) * (vPart > 5.5 ? 0.0 : 0.35));
     }
     float alpha = 1.0;
-    vec3 base; float spec = 0.55, gloss = 40.0, flecks = 0.0;
+    vec3 base; float spec = 0.38, gloss = 40.0, flecks = 0.0;
 
     // pattern coordinates that stick to the animal
     vec3 q = vRest;
@@ -266,7 +266,7 @@ const FRAG = /* glsl */`
       float sp2 = smoothstep(0.03, 0.0, scr) * smoothstep(0.55, 0.75, fbm(q * 9.0 + 1.0));   // thin scratches
       float fleck = max(sp1, sp2 * 0.9) * (0.35 + 0.65 * cl1);
       float dorsal = smoothstep(-0.05, 0.08, vL.y);
-      flecks = clamp(blot * 0.85 + fleck * (0.7 + 0.3 * dorsal), 0.0, 1.0);
+      flecks = clamp(blot * 0.3 + fleck * (0.7 + 0.3 * dorsal), 0.0, 1.0);
       // dark midline groove
       // bright raised rod on the midline, dark creases either side of it
       float kk = smoothstep(0.06, 0.3, vL.x) * dorsal;
@@ -278,16 +278,17 @@ const FRAG = /* glsl */`
       float streak = fbm(vec3(vUv.y * 60.0, vUv.x * 6.0, 3.0));                          // streaks run back from the lip
       float streak2 = smoothstep(0.45, 0.7, fbm(vec3(vUv.y * 90.0, vUv.x * 3.0, 9.0)));
       float blotch = fbm(vec3(vUv.y * 40.0, vUv.x * 20.0, 5.0));
-      float rim = 1.0 - smoothstep(0.01, 0.025 + 0.2 * streak2 * streak + 0.08 * blotch, vUv.x + (m - 0.5) * 0.04);
+      float rim = 1.0 - smoothstep(0.006, 0.016 + 0.07 * streak2 * streak + 0.03 * blotch, vUv.x + (m - 0.5) * 0.04);
       rim *= 0.75 + 0.25 * smoothstep(0.3, 0.55, blotch);                                 // patchy, not an even band
       rim *= mix(0.7, 1.0, smoothstep(0.3, -0.4, vL.y / 0.2));
-      if (part == ${P_MANTLE}) { base = mix(base, PALE * 1.05, rim * 0.95); flecks = max(flecks * (1.0 - rim), smoothstep(0.6, 0.75, streak) * (1.0 - smoothstep(0.04, 0.2, vUv.x)) * 0.8); }
+      if (part == ${P_MANTLE}) { base = mix(base, PALE * 0.95, rim * 0.8); flecks = max(flecks * (1.0 - rim), smoothstep(0.6, 0.75, streak) * (1.0 - smoothstep(0.04, 0.2, vUv.x)) * 0.8); }
       if (part == ${P_HEAD}) {
         float sideK = smoothstep(0.03, 0.08, abs(vL.z)) * smoothstep(0.08, -0.06, vL.y);
         float hm = fbm(vec3(vL.x * 45.0, vL.y * 45.0, vL.z * 25.0) + 3.0);
         vec3 green = mix(vec3(0.05, 0.11, 0.1), vec3(0.22, 0.32, 0.28), smoothstep(0.4, 0.7, hm));
         float nearEye = smoothstep(0.13, 0.06, length(vec2(vL.x + 0.1, vL.y + 0.008)));
         base = mix(base, green, nearEye * 0.85 * smoothstep(0.3, 0.5, hm + 0.2));   // red and green-silver mottling
+        base = mix(base, green * 1.3, smoothstep(0.42, 0.6, hm) * 0.6);   // the whole head is mottled teal and red (close-ups)
         flecks *= 0.8;
         float de = length(vec2(vL.x + 0.1, vL.y + 0.008)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
         base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
@@ -435,7 +436,7 @@ const FRAG = /* glsl */`
    // arms sit in the shadow of the mantle (close-ups: dark teal)
     if (part == ${P_ARM} || part == ${P_TENT}) {
       float far = smoothstep(3.0, 8.0, length(uCamPos - vW));
-      col = mix(col, vec3(0.42, 0.42, 0.44) * (0.6 + 0.6 * wrap) + col * 0.4, far * 0.75);
+      col = mix(col, vec3(0.5, 0.3, 0.32) * (0.35 + 0.8 * wrap) + col * 0.6, far * 0.3);
     }
     // torch from the cursor
     col *= 1.0 + uTorch * 0.25;
@@ -492,9 +493,9 @@ export function createSquid() {
     const ang = ((i + 0.5) / ARMN) * TAU;          // around the crown, 0 = top
     const pair = Math.min(i, ARMN - 1 - i);         // 0 top .. 3 bottom
     const len = [0.68, 0.76, 0.86, 0.8][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
-    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.03, r1: 0.0012, ph: i * 1.7 });
+    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.029, r1: 0.0012, ph: i * 1.7 });
   }
-  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 2.2, n: 200, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
+  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 1.75, n: 200, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
   const limbMesh = new THREE.Mesh(limbs.geo, mat);
   limbMesh.frustumCulled = false; finMesh.frustumCulled = false;
@@ -586,7 +587,7 @@ export function createSquid() {
     pulse: 0,         // 0 relaxed .. 1 squeezed
     jet: 0,           // set to 1 to fire a strong jet
     jetE: 0,          // jet envelope
-    agit: 0, spread: 0.3, finAmp: 0.6, speed: 0.5, surge: 0,
+    slack: 0, rise: 0, agit: 0, spread: 0.3, finAmp: 0.6, speed: 0.5, surge: 0,
     yaw: 0, pitch: 0, roll: 0, eye: new THREE.Vector2(),
   };
 
@@ -594,6 +595,12 @@ export function createSquid() {
   const qBody = new THREE.Quaternion(), qTmp = new THREE.Quaternion(), eul = new THREE.Euler();
 
   /* mantle cycle: quick squeeze (push) then slow refill (glide) */
+  // arms: how open they are through one stroke (0 = trailing bundle, 1 = open flower)
+  function openAt(c) {
+    c = ((c % 1) + 1) % 1;
+    const up = ss(0.0, 0.2, c), down = 1 - ss(0.28, 0.5, c);
+    return Q.mode === 'idle' ? 0.35 + 0.25 * Math.sin(c * TAU) : up * down;
+  }
   function cycleShape(c) {
     const push = 0.32;
     return c < push ? Math.sin((c / push) * Math.PI / 2) : 1 - ss(push, 1, c);
@@ -650,8 +657,8 @@ export function createSquid() {
       const isT = L.kind === 'tent';
       const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
       // roots packed on the crown of the head (tentacles sit just inside the ventral arms)
-      const rootR = isT ? 0.024 : 0.05;
-      P[0].set(isT ? -0.31 : -0.315, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
+      const rootR = isT ? 0.02 : 0.064;
+      P[0].set(isT ? -0.3 : -0.298, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
       const rad = tA.set(0, ca, sa);
       const perp = tB.set(0, -sa, ca);
       const seg = L.len / L.n;
@@ -671,25 +678,23 @@ export function createSquid() {
         // the body axis). Angles, unlike added vectors, can go past 90 degrees, so limbs can loop and hook.
         let lat, out;
         if (!isT) {
-          // arms (swim video): fan wide like loose fingers, then each tip hooks back inward; the whole bundle
-          // rides one slow shared wave, neighbours only slightly out of step
-          const ai = L.ang / TAU, tq = Q.t * 0.7, sp = Math.pow(s, 1.3);
-          const ph = tq - s * 3.6 + ai * 1.2;
-          const curl = (1.0 + 0.45 * Math.sin(tq * 0.55 + ai * 2.0 + L.ph)) * ss(0.38, 1.0, s);
-          out = spread * (0.15 + 0.85 * ss(0.05, 0.35, s)) * (1.0 - 0.15 * s) - 1.9 * curl + 0.35 * sp * Math.cos(ph * 0.9 + 0.7);
-          lat = 0.7 * sp * Math.sin(ph) + 0.25 * Math.sin(L.ph * 2.3) * s + w1 * ampA * 0.12;
+          // arms (swim video): they trail as a loose bundle; on each stroke they open like a flower from the
+          // base outward, the tips curling back, then sweep shut again. One shared beat, base leads tip.
+          const ai = li / ARMN, o = openAt(Q.cyc - 0.05 * s - 0.012 * Math.sin(L.ph)) * (0.85 + 0.25 * Math.sin(L.ph * 1.3));
+          const idle = 0.07 + 0.05 * s * Math.sin(Q.t * 0.9 - s * 3.5 + ai * TAU);
+          out = idle + o * (1.35 * ss(0.02, 0.3, s) - 1.9 * ss(0.36, 1.0, s));
+          lat = (0.04 + 0.22 * o) * s * Math.sin(Q.t * 0.7 - s * 3.0 + L.ph);
         } else {
-          // tentacles (swim video): big loose loops and S-bends rolling slowly from the head to the club;
-          // both share the wave, a little out of step; the club flops over behind it
-          const free = ss(0.1, 0.35, s), tq = Q.t * 0.55, off = L.side * 0.4;
-          const A = free * (0.45 + 1.6 * s);
-          lat = L.side * 0.14 * free + A * Math.sin(tq - s * 4.0 + off);
-          out = spread * (1.2 - s * 0.5) - 0.05 * (1 - free) + A * 0.75 * Math.cos(tq * 0.73 - s * 3.0 + off * 0.6 + 1.3);
-          out += ss(0.78, 0.97, s) * 1.1 * Math.sin(tq * 1.1 - 2.4 + off);   // the club folds over
+          // tentacles (swim video): they stream straight back between the arms, then one slow soft S-wave
+          // rolls down to the clubs; looser when the arms open, straighter on the glide
+          const free = ss(0.3, 0.55, s), tq = Q.t * 0.8;
+          const A = free * (0.2 + 0.6 * s) * (0.55 + 0.8 * Q.slack);
+          lat = L.side * 0.05 * ss(0.0, 0.3, s) + A * Math.sin(tq - s * 5.2 + L.side * 0.25);
+          out = 0.02 + A * 0.7 * Math.cos(tq * 0.8 - s * 4.2 + 1.3 + L.side * 0.2);
+          out += ss(0.8, 0.97, s) * 0.35 * Math.sin(tq * 0.9 - 2.4);   // the club lags and tips over a little
         }
         const co = Math.cos(out), so = Math.sin(out), cl2 = Math.cos(lat), sl = Math.sin(lat);
         dir.set(-co * cl2, 0, 0).addScaledVector(perp, co * sl).addScaledVector(rad, so);
-        if (!isT) dir.y -= 0.06 * s;
         dir.normalize();
         P[i].copy(P[i - 1]).addScaledVector(dir, seg);
       }
@@ -806,7 +811,7 @@ export function createSquid() {
     order.forEach((ai, pi) => {
       const bi = order[(pi + 1) % order.length];
       for (let i = 0; i <= WK; i++) for (let j = 0; j <= WJ; j++) {
-        const v = j / WJ, sc = 0.17 * (1 - 0.55 * Math.sin(Math.PI * v)) * (i / WK);
+        const v = j / WJ, sc = 0.1 * (1 - 0.55 * Math.sin(Math.PI * v)) * (i / WK);
         const ra = frameAt(ai, sc)[0]; wa.copy(hp);
         const rb = frameAt(bi, sc)[0]; wb.copy(hp);
         wd.subVectors(wb, wa); const dl = wd.length() || 1; wd.multiplyScalar(1 / dl);
@@ -831,31 +836,32 @@ export function createSquid() {
     if (!wantIdle && Q.mode === 'idle') { Q.mode = 'cruise'; Q.modeT = 0; }
     Q.agit = lp(Q.agit, ctx.agitate || 0, k1(dt, (ctx.agitate || 0) > Q.agit ? 6 : 0.8));
 
-    // mantle cycle speed: gentle in cruise, slow in hover, quicker when nervous
-    const period = Q.mode === 'idle' ? 2.6 : 1.7 - Q.agit * 0.6;
-    if (Q.jet >= 1) { Q.jetE = 1; Q.jet = 0; Q.ph = Math.ceil(Q.ph / TAU) * TAU; }
+    // one slow stroke: arms open as the mantle fills, then arms sweep shut as the mantle squeezes, then a long glide.
+    // the fin keeps a slow steady beat of its own.
+    const period = Q.mode === 'idle' ? 9 : 6.5 - Q.agit * 2;
+    if (Q.jet >= 1) { Q.jetE = 1; Q.jet = 0; Q.sc = Math.floor(Q.sc) + 0.27; }
     Q.jetE = Math.max(0, Q.jetE - dt * 0.55);
-    Q.ph += dt / period * TAU * (1 + Q.jetE * 1.5);
-    Q.cyc = (Q.ph / TAU) % 1;
-    const shape = cycleShape(Q.cyc);
-    Q.pulse = lp(Q.pulse, Math.max(shape * (Q.mode === 'idle' ? 0.5 : 0.85), Q.jetE * (Q.cyc < 0.3 ? 1 : 0)), k1(dt, 14));
-    // forward surge comes from the push; it decays into a glide
-    const push = Q.cyc < 0.32 ? 1 : 0;
-    Q.speed = lp(Q.speed, (Q.mode === 'idle' ? 0.12 : 0.42) + push * (0.35 + Q.jetE * 1.6) + Q.agit * 0.4, k1(dt, push ? 5 : 1.4));
-    Q.surge = lp(Q.surge, push * 0.045 * (1 + Q.jetE * 1.5) + 0.012 * Math.max(0, Math.sin(Q.ph)), k1(dt, push ? 6 : 1.8));
-    Q.spread = lp(Q.spread, Q.mode === 'idle' ? 1.1 : 0.95 + Q.agit * 0.3, k1(dt, 1.5));
-    Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 1.0 : 0.9) * (1 - Q.jetE * 0.8) + Q.agit * 0.3, k1(dt, 2));
+    Q.sc = (Q.sc || 0) + dt / period;
+    Q.cyc = Q.sc % 1;
+    Q.ph += dt / 2.3 * TAU * (1 + Q.jetE * 1.2);
+    const o = openAt(Q.cyc);
+    const squeeze = ss(0.28, 0.4, Q.cyc) * (1 - ss(0.46, 0.75, Q.cyc)) * (Q.mode === 'idle' ? 0.3 : 1);
+    Q.pulse = lp(Q.pulse, Math.max(squeeze * 0.8 + 0.08 * (0.5 + 0.5 * Math.sin(Q.ph)), Q.jetE), k1(dt, 8));
+    Q.slack = lp(Q.slack, o, k1(dt, 0.9));
+    Q.speed = lp(Q.speed, (Q.mode === 'idle' ? 0.1 : 0.3) + squeeze * (0.5 + Q.jetE * 1.4) + Q.agit * 0.3, k1(dt, squeeze > 0.1 ? 3 : 0.7));
+    Q.surge = lp(Q.surge, squeeze * 0.09 * (1 + Q.jetE) - o * 0.03, k1(dt, 1.6));
+    Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 1.0 : 0.85) * (1 - Q.jetE * 0.8) * (1 - squeeze * 0.4), k1(dt, 2));
 
-    // body attitude: fin first and upward; a slow drift so it never looks fixed
+    // body attitude: fin first and upward, held steady with only a slow small sway
     const curious = (ctx.pointerX || 0);
-    Q.yaw = lp(Q.yaw, 0.3 * Math.sin(t * 0.17) + 0.12 * Math.sin(t * 0.41 + 2.0) + curious * 0.12 * (1 - Q.agit) - curious * 0.2 * Q.agit, k1(dt, 0.8));
-    Q.pitch = lp(Q.pitch, 0.2 * Math.sin(t * 0.21 + 1) + 0.08 * Math.sin(t * 0.53) + (ctx.pointerY || 0) * 0.06 + (Q.mode === 'idle' ? -0.25 : 0), k1(dt, 0.8));
-    Q.roll = lp(Q.roll, 0.38 * Math.sin(t * 0.15 + 2) + 0.12 * Math.sin(t * 0.37) - curious * 0.1, k1(dt, 0.7));
+    Q.yaw = lp(Q.yaw, 0.07 * Math.sin(t * 0.17) + curious * 0.06, k1(dt, 0.8));
+    Q.pitch = lp(Q.pitch, 0.05 * Math.sin(t * 0.21 + 1) + (ctx.pointerY || 0) * 0.04 + (Q.mode === 'idle' ? -0.15 : 0), k1(dt, 0.8));
+    Q.roll = lp(Q.roll, 0.1 * Math.sin(t * 0.15 + 2) - curious * 0.05, k1(dt, 0.7));
     Q.eye.x = lp(Q.eye.x, cl(ctx.pointerX || 0, -1, 1), k1(dt, 6));
     Q.eye.y = lp(Q.eye.y, cl(ctx.pointerY || 0, -1, 1), k1(dt, 6));
 
     uniforms.uPulse.value = Q.pulse;
-    uniforms.uFlare.value = (1 - Q.pulse) * ss(0.4, 0.8, Q.cyc);
+    uniforms.uFlare.value = cl(0.55 + 0.45 * Q.slack - Q.pulse * 0.6, 0, 1);
     uniforms.uEye.value.copy(Q.eye);
   }
 
@@ -871,8 +877,8 @@ export function createSquid() {
 
   // travel direction: local +X points up-right, slightly toward the camera; dorsal side faces the viewer
   {
-    const fwd = new THREE.Vector3(0.84, 0.52, 0.1).normalize();
-    const up = new THREE.Vector3(-0.1, 0.05, 1).normalize();   // dorsal (+Y local) faces the camera
+    const fwd = new THREE.Vector3(0.5, 0.86, 0.1).normalize();
+    const up = new THREE.Vector3(-0.25, 0.1, 1).normalize();   // dorsal (+Y local) faces the camera
     const side = new THREE.Vector3().crossVectors(fwd, up).normalize();
     up.crossVectors(side, fwd).normalize();
     const m = new THREE.Matrix4().makeBasis(fwd, up, side);

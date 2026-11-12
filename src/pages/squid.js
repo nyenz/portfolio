@@ -101,8 +101,8 @@ renderer.setAnimationLoop((now) => {
   });
   U.uFlow.value.y -= squid.flow() * dt * 0.55;
 
-  post.bloom.strength = Math.max(envState.bloom, 0.95) * (isTouch ? 0.85 : 1);
-  post.bloom.radius = 0.7; post.bloom.threshold = 0.6;   // soft glow that blurs edges (the reference video is soft)   // soft glow like the reference
+  post.bloom.strength = 0.7 * (isTouch ? 0.85 : 1);
+  post.bloom.radius = 0.7; post.bloom.threshold = 0.72;   // soft glow that blurs edges (the reference video is soft)   // soft glow like the reference
   LENS.uniforms.uTime.value = time;
   post.composer.render(dt);
 });
