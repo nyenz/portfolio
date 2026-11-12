@@ -241,6 +241,7 @@ const FRAG = /* glsl */`
     vec3 N = normalize(vN + vec3(0.0, 1e-5, 0.0));
     vec3 V = normalize(uCamPos - vW);
     if (!gl_FrontFacing) N = -N;
+    if (vPart > 3.5 && vPart < 5.5) { N = normalize(vN); if (dot(N, V) < 0.0) N = -N; }   // limbs are closed tubes: the side we see always faces us
     if (vPart < 3.5) {
       vec3 bq = vRest * 46.0;
       float e0 = n3(bq), ex = n3(bq + vec3(0.37, 0.0, 0.0)), ey = n3(bq + vec3(0.0, 0.37, 0.0)), ez = n3(bq + vec3(0.0, 0.0, 0.37));
@@ -288,13 +289,13 @@ const FRAG = /* glsl */`
         vec3 green = mix(vec3(0.05, 0.11, 0.1), vec3(0.22, 0.32, 0.28), smoothstep(0.4, 0.7, hm));
         float nearEye = smoothstep(0.13, 0.06, length(vec2(vL.x + 0.1, vL.y + 0.008)));
         base = mix(base, green, nearEye * 0.85 * smoothstep(0.3, 0.5, hm + 0.2));   // red and green-silver mottling
-        base = mix(base, green * 1.3, smoothstep(0.42, 0.6, hm) * 0.6);   // the whole head is mottled teal and red (close-ups)
+        base = mix(base, green * 1.5, smoothstep(0.36, 0.56, hm) * 0.8 * smoothstep(-0.34, -0.2, vL.x));   // the whole head is mottled teal and red (close-ups)
         flecks *= 0.8;
         float de = length(vec2(vL.x + 0.1, vL.y + 0.008)) * step(0.03, abs(vL.z)) + (1.0 - step(0.03, abs(vL.z)));
         base = mix(base, vec3(0.45, 0.5, 0.45), smoothstep(0.012, 0.0, abs(de - 0.05)) * 0.3);  // faint silver rim
         base *= 1.0 - 0.25 * smoothstep(0.062, 0.05, de);
         float mot = smoothstep(0.4, 0.65, fbm(vec3(vL.x * 60.0, vL.y * 60.0, vL.z * 30.0)));
-        base = mix(base, mix(vec3(0.32, 0.46, 0.42), vec3(0.62, 0.72, 0.66), mot), smoothstep(0.11, 0.07, de) * 0.75);   // mottled silvery-green skin around the eye   // silvery-green skin around the eye                                         // the socket is a little darker
+        base = mix(base, mix(vec3(0.1, 0.24, 0.23), vec3(0.34, 0.5, 0.46), mot), smoothstep(0.11, 0.07, de) * 0.75);   // mottled silvery-green skin around the eye   // silvery-green skin around the eye                                         // the socket is a little darker
         flecks *= smoothstep(0.05, 0.08, de);
       }
       if (part == ${P_FUNNEL}) { base = mix(vec3(0.3, 0.33, 0.32), vec3(0.45, 0.14, 0.17), smoothstep(0.4, 0.7, m) * 0.6); flecks *= 0.3; }   // pale grey funnel tube
@@ -338,7 +339,7 @@ const FRAG = /* glsl */`
         float n1 = fbm(vec3(s * 9.0, ang * 3.0, vRest.z * 2.3));
         vec3 skin = mix(vec3(0.06, 0.11, 0.12), vec3(0.16, 0.24, 0.25), smoothstep(0.35, 0.7, n1));   // linear values
         float streak = smoothstep(0.55, 0.85, fbm(vec3(s * 3.0, ang * 14.0, vRest.z * 5.0 + 2.0)));
-        skin = mix(skin, vec3(0.36, 0.42, 0.41), streak * 0.45);
+        skin = mix(skin, vec3(0.2, 0.3, 0.3), streak * 0.35);
         float rpatch = smoothstep(0.52, 0.66, fbm(vec3(s * 16.0, ang * 5.0, vRest.z * 3.0 + 9.0)));
         rpatch *= (0.35 + 0.65 * outer) * (1.0 - smoothstep(0.55, 0.95, f));
         base = mix(skin, vec3(0.5, 0.07, 0.1), rpatch * 0.85);
@@ -384,12 +385,13 @@ const FRAG = /* glsl */`
       base = mix(skin, vec3(0.32, 0.4, 0.38), smoothstep(0.2, 0.3, k));            // silver-green lid ring           // dark rim around the iris
       base = mix(base, vec3(0.03, 0.06, 0.06), smoothstep(0.5, 0.56, k));
       base = mix(base, irisC, smoothstep(0.6, 0.66, k));                            // silver-teal iris
-      base = mix(base, vec3(0.002, 0.003, 0.004), smoothstep(0.93, 0.95, k));   // small black pupil
+      base = mix(base, vec3(0.002, 0.003, 0.004), smoothstep(0.94, 0.955, k));   // black pupil
       if (k > 0.86) spec = 0.6;      // black pupil
       spec = 2.2; gloss = 180.0;
       // a bright window reflection on the cornea, fixed toward the light
       float glintE = smoothstep(0.985, 0.995, dot(normalize(vN), normalize(uSunD + vec3(0.0, 0.3, 0.0))));
       base += vec3(0.8) * glintE;
+      base *= 0.75 + 0.25 * smoothstep(0.6, 0.85, k) + 0.3 * (1.0 - smoothstep(0.3, 0.6, k));   // the iris is deeper toward its rim (a domed lens)
     }
 
     float underK = 0.0;
@@ -419,7 +421,7 @@ const FRAG = /* glsl */`
 
     // specular + glitter: tiny specks that twinkle as the squid turns (the "shine specs")
     vec3 H = normalize(L + V);
-    float sp = pow(max(dot(N, H), 0.0), gloss * 0.6) * spec * 1.1 + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1 * (part == ${P_EYE} ? 0.0 : 1.0);
+    float sp = pow(max(dot(N, H), 0.0), gloss * 0.6) * spec * (part == ${P_EYE} ? 1.1 : 0.55 + 0.9 * n3(q * 180.0)) + pow(max(dot(N, H), 0.0), 8.0) * spec * 0.1 * (part == ${P_EYE} ? 0.0 : 1.0);
     float glit = 0.0;
     if (part != ${P_EYE} && part != ${P_INNER} && part != ${P_HOOK}) {
       float g = n3(q * 140.0 + vec3(0.0, 0.0, floor(dot(V, vec3(3.1, 2.3, 1.7)) * 6.0)));
@@ -427,6 +429,18 @@ const FRAG = /* glsl */`
     }
     col += vec3(1.0, 0.96, 0.95) * (sp * (0.35 + flecks) + glit * 0.9);
 
+    if (part == ${P_EYE}) {
+      // wet glass: the cornea mirrors the bright water above and the dark below, strongest at grazing angles
+      vec3 Rv = reflect(-V, N);
+      float fe = 0.06 + 0.94 * pow(1.0 - max(dot(N, V), 0.0), 4.0);
+      col += mix(uDeepTint * 0.4, uTop * 1.6 + vec3(0.25), smoothstep(-0.2, 0.9, Rv.y)) * fe * 0.9;
+      col += vec3(1.0) * smoothstep(0.93, 0.99, dot(Rv, normalize(L + vec3(0.25, 0.1, 0.0)))) * 0.55;   // a soft window of light beside the glint
+    } else if (part != ${P_INNER}) {
+      // soft skin: fine pores break the shine up, and a velvet sheen lifts the edges
+      float pore = n3(q * 260.0) * 0.6 + n3(q * 90.0) * 0.4;
+      col *= 0.86 + 0.26 * pore;
+      col += base * pow(1.0 - max(dot(N, V), 0.0), 2.0) * 0.35 * (1.0 - underK) * ((part == ${P_ARM} || part == ${P_TENT}) ? 0.0 : 1.0);
+    }
     // soft rim of water light
     float fr = pow(1.0 - max(dot(N, V), 0.0), 3.0);
     col += uTop * fr * 0.35 * (1.0 - underK * 0.7) * (part == ${P_FIN} ? 1.4 : (part == ${P_ARM} || part == ${P_TENT}) ? 0.25 : 1.0);
@@ -436,7 +450,7 @@ const FRAG = /* glsl */`
    // arms sit in the shadow of the mantle (close-ups: dark teal)
     if (part == ${P_ARM} || part == ${P_TENT}) {
       float far = smoothstep(3.0, 8.0, length(uCamPos - vW));
-      col = mix(col, vec3(0.5, 0.3, 0.32) * (0.35 + 0.8 * wrap) + col * 0.6, far * 0.3);
+      col *= 0.42 + 0.75 * pow(max(dot(N, V), 0.0), 0.9) + 0.0 * far;   // round limbs: they darken toward their edges
     }
     // torch from the cursor
     col *= 1.0 + uTorch * 0.25;
@@ -493,7 +507,7 @@ export function createSquid() {
     const ang = ((i + 0.5) / ARMN) * TAU;          // around the crown, 0 = top
     const pair = Math.min(i, ARMN - 1 - i);         // 0 top .. 3 bottom
     const len = [0.68, 0.76, 0.86, 0.8][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
-    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.029, r1: 0.0012, ph: i * 1.7 });
+    specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.027, r1: 0.0012, ph: i * 1.7 });
   }
   for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 1.75, n: 200, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
@@ -539,10 +553,11 @@ export function createSquid() {
       void main(){
         vec3 N = normalize(vN), V = normalize(uCamPos - vW), L = normalize(uSunD);
         // pale bead with a darker cup on top and a teal-grey stalk below
-        vec3 c = mix(vec3(0.05, 0.09, 0.1), vec3(0.42, 0.52, 0.5), smoothstep(0.0, 0.7, vY));
-        c = mix(c, vec3(0.08, 0.12, 0.13), smoothstep(1.15, 1.32, vY));
+        vec3 c = mix(vec3(0.07, 0.12, 0.13), vec3(0.5, 0.58, 0.55), smoothstep(-0.3, 0.5, vY));
+        c = mix(c, vec3(0.7, 0.74, 0.7), smoothstep(0.95, 1.12, vY) * (1.0 - smoothstep(1.16, 1.22, vY)));   // pale raised ring
+        c = mix(c, vec3(0.02, 0.035, 0.04), smoothstep(1.18, 1.26, vY));                                   // dark hole in the cup
         float wrap = clamp((dot(N, L) + 0.4) / 1.4, 0.0, 1.0);
-        vec3 col = c * (0.75 + 0.6 * wrap) + uTop * 0.1;   // beads catch light all round, so they read as whole balls
+        vec3 col = c * (0.9 + 0.45 * wrap) + uTop * 0.1;   // beads catch light all round, so they read as whole balls
         vec3 H = normalize(L + V);
         col += vec3(1.0) * pow(max(dot(N, H), 0.0), 60.0) * 0.3;   // wet glint on each bead
         float d = length(uCamPos - vW);
@@ -617,7 +632,7 @@ export function createSquid() {
         // the fin beats up and down in a wave running from front to tip; lobes lead
         const wave = Math.sin(ph - x * 9.0) + 0.35 * Math.sin(2.0 * ph - x * 14.0 + 1.0);   // a strong wave runs from the lobes to the tip
         const fold = Q.jetE * 0.9 + Q.pulse * 0.06;    // folds down along the body during a push
-        const lift = (wave * amp * 0.06 * Math.pow(e, 1.2) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
+        const lift = (wave * amp * 0.08 * Math.pow(e, 1.2) - fold * 0.16 * Math.pow(e, 1.1)) * ss(0.36, 0.5, x);
         // a soft cup across the fin (edges slightly up when relaxed)
         const lobe = (1 - ss(0.5, 0.78, x)) * e * e;        // the front lobes cup and open with the beat
         const cup = 0.01 * e * e * (1 - Q.pulse) + 0.025 * Math.cos(ph - 0.6) * lobe * amp + 0.006 * Math.sin(x * 120 + ph * 0.6) * ss(0.8, 1, e);
@@ -681,7 +696,7 @@ export function createSquid() {
           // arms (swim video): they trail as a loose bundle; on each stroke they open like a flower from the
           // base outward, the tips curling back, then sweep shut again. One shared beat, base leads tip.
           const ai = li / ARMN, o = openAt(Q.cyc - 0.05 * s - 0.012 * Math.sin(L.ph)) * (0.85 + 0.25 * Math.sin(L.ph * 1.3));
-          const idle = 0.07 + 0.05 * s * Math.sin(Q.t * 0.9 - s * 3.5 + ai * TAU);
+          const idle = 0.05 + 0.2 * (1 - ss(0.0, 0.3, s)) + 0.05 * s * Math.sin(Q.t * 0.9 - s * 3.5 + ai * TAU);
           out = idle + o * (1.35 * ss(0.02, 0.3, s) - 1.9 * ss(0.36, 1.0, s));
           lat = (0.04 + 0.22 * o) * s * Math.sin(Q.t * 0.7 - s * 3.0 + L.ph);
         } else {
@@ -716,7 +731,7 @@ export function createSquid() {
   function section(L, s) {
     if (L.kind === 'arm') {
       // thick webbed base, holds its width for the first third, then a long taper to a fine point
-      const r = L.r0 * Math.pow(Math.max(1 - s, 0), 0.75) * (0.85 + 0.15 * ss(0.0, 0.06, s)) + L.r1;   // round tube: steady taper to a fine tip   // roots tuck into the head, full width just outside it
+      const r = L.r0 * Math.pow(Math.max(1 - s, 0), 0.75) * (0.9 + 0.1 * ss(0.0, 0.2, s)) + L.r1;   // round tube: steady taper to a fine tip   // roots tuck into the head, full width just outside it
       return { r, w: 1.0, h: 0.96, club: 0 };
     }
     // tentacle: slightly thicker where it leaves the head, thin stalk, leaf club
@@ -750,7 +765,7 @@ export function createSquid() {
         const c = Math.cos(th), sn = Math.sin(th);
         let ox = c * rH, oy = sn * rW;
         if (L.kind === 'arm') {
-          ox *= 1 + 0.22 * Math.pow(Math.max(0, -c), 6);   // a keel along the back
+          ox *= 1 + 0.05 * Math.pow(Math.max(0, -c), 2);   // a keel along the back
           ox *= 1 - 0.25 * Math.pow(Math.max(0, c), 2);     // flatter oral face
         } else if (S.club > 0) {
           ox *= 1 - 0.3 * S.club * Math.pow(Math.max(0, c), 2);
@@ -796,7 +811,7 @@ export function createSquid() {
       hv.crossVectors(hd, ht).normalize();
       const tl = tmp.crossVectors(hv, hd).normalize();
       sBasis.makeBasis(tl, hd, hv);
-      sScale.set(size, size * 0.75, size);
+      sScale.set(size, size * 0.6, size);
       sm4.copy(sBasis).scale(sScale).setPosition(hc);
       suckers.setMatrixAt(k, sm4);
     });
@@ -811,7 +826,7 @@ export function createSquid() {
     order.forEach((ai, pi) => {
       const bi = order[(pi + 1) % order.length];
       for (let i = 0; i <= WK; i++) for (let j = 0; j <= WJ; j++) {
-        const v = j / WJ, sc = 0.1 * (1 - 0.55 * Math.sin(Math.PI * v)) * (i / WK);
+        const v = j / WJ, sc = 0.035 * (1 - 0.55 * Math.sin(Math.PI * v)) * (i / WK);
         const ra = frameAt(ai, sc)[0]; wa.copy(hp);
         const rb = frameAt(bi, sc)[0]; wb.copy(hp);
         wd.subVectors(wb, wa); const dl = wd.length() || 1; wd.multiplyScalar(1 / dl);

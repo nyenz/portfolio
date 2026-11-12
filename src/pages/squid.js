@@ -99,7 +99,7 @@ renderer.setAnimationLoop((now) => {
     idle: mode === 'idle' ? 10 : 0,
     pointerX: P.x, pointerY: P.y, pointerPx: P.px, pointerPy: P.py, pointerSpeed: P.speed, exit: 0,
   });
-  U.uFlow.value.y -= squid.flow() * dt * 0.55;
+  U.uFlow.value.y -= squid.flow() * dt * 1.5; U.uFlow.value.x -= squid.flow() * dt * 0.85;   // the water streams back past it: it is travelling up
 
   post.bloom.strength = 0.7 * (isTouch ? 0.85 : 1);
   post.bloom.radius = 0.7; post.bloom.threshold = 0.72;   // soft glow that blurs edges (the reference video is soft)   // soft glow like the reference
