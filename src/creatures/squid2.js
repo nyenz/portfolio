@@ -336,24 +336,25 @@ const FRAG = /* glsl */`
       if (part == ${P_ARM}) {
         // arm close-ups: grey-teal skin, pale streaks running along the arm, irregular red-pink patches on the
         // back that thin out toward the tip, a lighter sucker face, faint rings
-        float n1 = fbm(vec3(s * 9.0, ang * 3.0, vRest.z * 2.3));
-        vec3 skin = mix(vec3(0.06, 0.11, 0.12), vec3(0.16, 0.24, 0.25), smoothstep(0.35, 0.7, n1));   // linear values
-        float streak = smoothstep(0.55, 0.85, fbm(vec3(s * 3.0, ang * 14.0, vRest.z * 5.0 + 2.0)));
-        skin = mix(skin, vec3(0.2, 0.3, 0.3), streak * 0.35);
-        float rpatch = smoothstep(0.52, 0.66, fbm(vec3(s * 16.0, ang * 5.0, vRest.z * 3.0 + 9.0)));
-        rpatch *= (0.35 + 0.65 * outer) * (1.0 - smoothstep(0.55, 0.95, f));
-        base = mix(skin, vec3(0.5, 0.07, 0.1), rpatch * 0.85);
-        base = mix(base, vec3(0.16, 0.22, 0.22), inner * 0.5);          // the sucker face is paler
-        base = mix(base, RED2 * 0.85, (1.0 - smoothstep(0.03, 0.14, f)) * 0.7);   // red where it meets the head
-        base *= 1.0 - 0.08 * smoothstep(0.6, 1.0, sin(s * 260.0)) * outer;          // faint rings
-        flecks = smoothstep(0.66, 0.76, fbm(vec3(s * 60.0, ang * 10.0, vRest.z * 7.0))) * 0.35 * outer;
+        // arm close-ups: pale cream-grey skin; soft salmon-red blotches gathered in loose clusters on the back,
+        // thinning toward the tip; the sucker face is darker teal. No stripes, no rings.
+        float n1 = fbm(vec3(s * 7.0, ang * 2.5, vRest.z * 2.3));
+        vec3 skin = mix(vec3(0.19, 0.26, 0.26), vec3(0.4, 0.45, 0.43), smoothstep(0.3, 0.72, n1));   // linear values
+        float big = fbm(vec3(s * 10.0, ang * 3.2, vRest.z * 3.0 + 9.0));
+        float small = fbm(vec3(s * 46.0, ang * 9.0, vRest.z * 5.0 + 3.0));
+        float rpatch = smoothstep(0.47, 0.58, big * 0.58 + small * 0.42);
+        rpatch *= (0.2 + 0.8 * outer) * (1.0 - 0.6 * smoothstep(0.5, 1.0, f));
+        base = mix(skin, mix(vec3(0.58, 0.12, 0.13), vec3(0.7, 0.3, 0.28), small), rpatch * 0.82);
+        base = mix(base, vec3(0.05, 0.14, 0.15), inner * 0.7);          // the sucker face is darker teal
+        base = mix(base, RED2 * 0.85, (1.0 - smoothstep(0.02, 0.12, f)) * 0.75);   // red where it meets the head
+        flecks = smoothstep(0.7, 0.78, fbm(vec3(s * 70.0, ang * 12.0, vRest.z * 7.0))) * 0.25 * outer;
       } else {
         // stalk: crisp red / white bands, red near the base; club: pale with pink blotches
-        float bandN = n3(vec3(floor(s * 52.0), vRest.z, 1.0));
-        float band = step(0.38 + bandN * 0.2, fract(s * 52.0));
-        vec3 stalk = mix(vec3(0.34, 0.36, 0.36), RED2 * 0.55, band);   // linear: pale grey and red bands
-        stalk = mix(stalk, vec3(0.5), smoothstep(0.8, 0.9, n3(vec3(s * 160.0, ang * 10.0, 3.0))) * 0.6);
-        stalk = mix(stalk, RED, 1.0 - smoothstep(0.02, 0.12, f));
+        // stalk: pale and smooth like the arms, with soft uneven pink rings that come and go; fleshy red base
+        float ringN = fbm(vec3(s * 5.0, vRest.z * 3.0, 1.0));
+        float ring = smoothstep(0.25, 0.75, 0.5 + 0.5 * sin(s * 240.0 + ringN * 9.0)) * smoothstep(0.38, 0.6, ringN);
+        vec3 stalk = mix(vec3(0.3, 0.35, 0.34), vec3(0.55, 0.17, 0.17), ring * 0.55);
+        stalk = mix(stalk, RED2 * 0.8, 1.0 - smoothstep(0.03, 0.16, f));
         float club = smoothstep(0.81, 0.86, f);
         // club: pink-red mottled with white, the toothed edge and the tip go pale
         float mot = fbm(vec3(s * 70.0, ang * 7.0, vRest.z * 5.0 + 4.0));
@@ -501,6 +502,7 @@ export function createSquid() {
   // tentacles: from between the lowest arm pair, thin red/white banded stalk, leaf-shaped club
   // (last 28%) about 5x the stalk width, with a row of large teeth along one edge.
   const RAD = 14;
+  const BODY_LEN = 1.9;              // world size of the body (collar to fin tip)
   const specs = [];
   const ARMN = 8;
   for (let i = 0; i < ARMN; i++) {
@@ -509,7 +511,7 @@ export function createSquid() {
     const len = [0.68, 0.76, 0.86, 0.8][pair] * (0.96 + 0.08 * ((i * 37) % 7) / 7);
     specs.push({ kind: 'arm', part: P_ARM, ang, len, n: 80, r0: 0.027, r1: 0.0012, ph: i * 1.7 });
   }
-  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.45, len: 1.75, n: 200, r0: 0.017, r1: 0.0098, ph: s > 0 ? 0 : 2.4, side: s });
+  for (const s of [-1, 1]) specs.push({ kind: 'tent', part: P_TENT, ang: Math.PI + s * 0.78, len: 1.75, n: 200, r0: 0.02, r1: 0.0085, ph: s > 0 ? 0 : 2.4, side: s });
   const limbs = buildLimbs(specs, RAD);
   const limbMesh = new THREE.Mesh(limbs.geo, mat);
   limbMesh.frustumCulled = false; finMesh.frustumCulled = false;
@@ -614,7 +616,7 @@ export function createSquid() {
   function openAt(c) {
     c = ((c % 1) + 1) % 1;
     const up = ss(0.0, 0.2, c), down = 1 - ss(0.28, 0.5, c);
-    return Q.mode === 'idle' ? 0.35 + 0.25 * Math.sin(c * TAU) : up * down;
+    return up * down;
   }
   function cycleShape(c) {
     const push = 0.32;
@@ -665,62 +667,135 @@ export function createSquid() {
     fin.geo.attributes.normal.needsUpdate = true;
   }
 
-  /* limbs: each is a curve grown from its root, shaped by the swim cycle, then dragged by water */
-  function updateLimbs(dt, t) {
+  /* limbs: soft ropes in water.
+     Each limb is a chain of points simulated in the water's frame (the holder), not glued to the body:
+       - muscle pulls each point toward the pose the squid wants (strong at the base, weak at the tip;
+         the tentacles are almost passive beyond their base),
+       - water drags on it: hard across the limb, lightly along it, so limbs trail and whip softly,
+       - the water itself streams back past the swimming body, is pushed by the jet, and wanders a little,
+       - points keep their spacing, resist kinks, and are pushed out of the head and out of each other. */
+  const SIMH = 1 / 60;
+  const sims = specs.map((L) => {
+    const n = L.kind === 'tent' ? 44 : 24;
+    const mk = () => Array.from({ length: n + 1 }, () => new THREE.Vector3());
+    return { n, x: mk(), px: mk(), tg: mk(), loc: mk(), rad: new Float32Array(n + 1), init: false };
+  });
+  let simAcc = 0, strokeAmp = 1, strokeSeed = 0;
+  const armJit = new Float32Array(ARMN).fill(1);
+  const vF = new THREE.Vector3(), vU = new THREE.Vector3(), vTn = new THREE.Vector3(), vD = new THREE.Vector3(), vL = new THREE.Vector3(), fwdH = new THREE.Vector3();
+  const qInv = new THREE.Quaternion();
+  const toH = (v) => v.multiplyScalar(BODY_LEN).applyQuaternion(body.quaternion).add(body.position);
+  const toL = (v, o) => o.copy(v).sub(body.position).applyQuaternion(qInv).multiplyScalar(1 / BODY_LEN);
+
+  // the pose the muscles ask for, in body space
+  function targetChain(L, li, sim) {
+    const isT = L.kind === 'tent', T = sim.tg, n = sim.n;
+    const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
+    const rootR = isT ? 0.034 : 0.064;
+    T[0].set(isT ? -0.3 : -0.298, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
+    const rad = tA.set(0, ca, sa), perp = tB.set(0, -sa, ca), seg = L.len / n, dir = tT;
+    for (let i = 1; i <= n; i++) {
+      const s = i / n;
+      let lat, out;
+      if (!isT) {
+        // arms: a loose trailing bundle; on a stroke they open from the base outward, tips curling back
+        const o = openAt(Q.cyc - 0.05 * s - 0.012 * Math.sin(L.ph)) * strokeAmp * armJit[li];
+        const idle = 0.05 + 0.2 * (1 - ss(0.0, 0.3, s));
+        out = idle + o * (1.3 * ss(0.02, 0.3, s) - 1.7 * ss(0.36, 1.0, s));
+        lat = 0.1 * o * s * Math.sin(L.ph * 2.1 + strokeSeed);
+      } else {
+        // tentacles: only the base is held; it points back between the arms
+        lat = L.side * 0.04; out = 0.03;
+      }
+      const co = Math.cos(out), so = Math.sin(out), cl2 = Math.cos(lat), sl = Math.sin(lat);
+      dir.set(-co * cl2, 0, 0).addScaledVector(perp, co * sl).addScaledVector(rad, so).normalize();
+      T[i].copy(T[i - 1]).addScaledVector(dir, seg);
+    }
+    for (let i = 0; i <= n; i++) toH(T[i]);
+  }
+
+  // the water's own velocity at a point (holder space)
+  function waterAt(p, lx, rr, out) {
+    const t = Q.t, v = Q.speed * 0.95;
+    out.copy(fwdH).multiplyScalar(-v);                                  // it streams back past the swimming body
+    out.addScaledVector(fwdH, -Q.jetFlow * 1.1 * Math.exp(-rr * rr / 0.012) * ss(0.1, -0.5, lx));   // the jet from the funnel
+    const k = 0.8, a = 0.045 + 0.03 * Q.slack;                           // slow eddies: nothing is ever quite still
+    out.x += a * (Math.sin(k * p.y + 0.7 * t) + Math.sin(1.7 * k * p.z - 0.5 * t + 1.0));
+    out.y += a * (Math.sin(k * p.z + 0.6 * t + 2.0) + Math.sin(1.4 * k * p.x - 0.4 * t));
+    out.z += a * (Math.sin(k * p.x + 0.5 * t + 4.0) + Math.sin(1.6 * k * p.y + 0.45 * t + 1.0));
+  }
+
+  function simStep(h) {
+    qInv.copy(body.quaternion).invert();
+    fwdH.set(1, 0, 0).applyQuaternion(body.quaternion);
     specs.forEach((L, li) => {
-      const ch = chains[li], P = ch.pts;
-      const isT = L.kind === 'tent';
-      const ca = Math.cos(L.ang), sa = Math.sin(L.ang);
-      // roots packed on the crown of the head (tentacles sit just inside the ventral arms)
-      const rootR = isT ? 0.02 : 0.064;
-      P[0].set(isT ? -0.3 : -0.298, ca * rootR * 1.12 + 0.012, sa * rootR * 0.95);
-      const rad = tA.set(0, ca, sa);
-      const perp = tB.set(0, -sa, ca);
-      const seg = L.len / L.n;
-      // arms: a tight bundle that opens a little on the glide and closes on each push
-      const P2 = Q.ph * 0.5;                                     // limbs ripple at half the fin beat
-      const spread = isT ? 0.03 + 0.04 * (1 - Q.pulse) : Q.spread * (1 - Q.pulse * 0.7) * (1 - Q.jetE * 0.7) * (0.85 + 0.25 * Math.sin(Q.ph * 0.25 + L.ph));
-      const dir = tT.set(-1, 0, 0);
-      for (let i = 1; i <= L.n; i++) {
-        const s = i / L.n;
-        const wv = isT ? 2.4 : 3.0;
-        const lp0 = isT ? L.ph : L.ph * 0.2;                     // arms stay nearly in step as a bundle
-        const w1 = Math.sin(TAU * (s * (isT ? 1.3 : 0.85)) - P2 + lp0);
-        const w2 = Math.cos(TAU * (s * (isT ? 0.9 : 0.6)) - P2 * 0.7 + lp0 * 1.3);
-        void wv;
-        const ampA = (isT ? 2.4 : 0.6) * (0.15 + 0.85 * s * s) * (0.75 + Q.agit * 0.8 + (Q.mode === 'idle' ? 0.5 : 0));
-        // each segment's heading is two angles: lat (sideways, around the crown) and out (away from / toward
-        // the body axis). Angles, unlike added vectors, can go past 90 degrees, so limbs can loop and hook.
-        let lat, out;
-        if (!isT) {
-          // arms (swim video): they trail as a loose bundle; on each stroke they open like a flower from the
-          // base outward, the tips curling back, then sweep shut again. One shared beat, base leads tip.
-          const ai = li / ARMN, o = openAt(Q.cyc - 0.05 * s - 0.012 * Math.sin(L.ph)) * (0.85 + 0.25 * Math.sin(L.ph * 1.3));
-          const idle = 0.05 + 0.2 * (1 - ss(0.0, 0.3, s)) + 0.05 * s * Math.sin(Q.t * 0.9 - s * 3.5 + ai * TAU);
-          out = idle + o * (1.35 * ss(0.02, 0.3, s) - 1.9 * ss(0.36, 1.0, s));
-          lat = (0.04 + 0.22 * o) * s * Math.sin(Q.t * 0.7 - s * 3.0 + L.ph);
-        } else {
-          // tentacles (swim video): they stream straight back between the arms, then one slow soft S-wave
-          // rolls down to the clubs; looser when the arms open, straighter on the glide
-          const free = ss(0.3, 0.55, s), tq = Q.t * 0.8;
-          const A = free * (0.2 + 0.6 * s) * (0.55 + 0.8 * Q.slack);
-          lat = L.side * 0.05 * ss(0.0, 0.3, s) + A * Math.sin(tq - s * 5.2 + L.side * 0.25);
-          out = 0.02 + A * 0.7 * Math.cos(tq * 0.8 - s * 4.2 + 1.3 + L.side * 0.2);
-          out += ss(0.8, 0.97, s) * 0.35 * Math.sin(tq * 0.9 - 2.4);   // the club lags and tips over a little
+      const sim = sims[li], n = sim.n, X = sim.x, PX = sim.px, T = sim.tg, isT = L.kind === 'tent';
+      targetChain(L, li, sim);
+      if (!sim.init) { for (let i = 0; i <= n; i++) { X[i].copy(T[i]); PX[i].copy(T[i]); sim.rad[i] = section(L, i / n).r * BODY_LEN; } sim.init = true; }
+      const power = isT ? 0 : ss(0.26, 0.36, Q.cyc) * (1 - ss(0.5, 0.62, Q.cyc));   // the closing sweep is the strong part of the stroke
+      for (let i = 1; i <= n; i++) {
+        const s = i / n, x = X[i];
+        toL(x, vL); const rr = Math.hypot(vL.y, vL.z);
+        waterAt(x, vL.x, rr, vF);
+        vU.subVectors(x, PX[i]).multiplyScalar(1 / h).sub(vF);           // velocity through the water
+        vTn.subVectors(X[Math.min(i + 1, n)], X[i - 1]).normalize();
+        const along = vU.dot(vTn);
+        const cn = isT ? 2.2 + 2.5 * s + 3.5 * ss(0.84, 0.92, s) : 2.4 + 3.2 * s, ct = isT ? 0.3 : 0.5;
+        const en = Math.exp(-cn * h), et = Math.exp(-ct * h);
+        vU.addScaledVector(vTn, -along).multiplyScalar(en).addScaledVector(vTn, along * et);
+        PX[i].copy(x);
+        x.addScaledVector(vU.add(vF), h);
+        const km = isT ? 16 * (1 - ss(0.03, 0.2, s)) + 0.1 : lp(18, 2.0, Math.pow(s, 0.7)) * (1 + 1.2 * power);
+        x.lerp(T[i], 1 - Math.exp(-km * h));
+      }
+      X[0].copy(T[0]); PX[0].copy(T[0]);
+    });
+    // spacing, smoothness, and keeping out of the head and of each other
+    for (let it = 0; it < 4; it++) {
+      specs.forEach((L, li) => {
+        const sim = sims[li], n = sim.n, X = sim.x, seg = L.len * BODY_LEN / n, isT = L.kind === 'tent';
+        for (let i = 1; i <= n; i++) {
+          vD.subVectors(X[i], X[i - 1]); const d = vD.length() || 1e-6, e = (d - seg) / d;
+          if (i === 1) X[i].addScaledVector(vD, -e); else { X[i - 1].addScaledVector(vD, e * 0.5); X[i].addScaledVector(vD, -e * 0.5); }
         }
-        const co = Math.cos(out), so = Math.sin(out), cl2 = Math.cos(lat), sl = Math.sin(lat);
-        dir.set(-co * cl2, 0, 0).addScaledVector(perp, co * sl).addScaledVector(rad, so);
-        dir.normalize();
-        P[i].copy(P[i - 1]).addScaledVector(dir, seg);
+        const kb = isT ? 0.14 : 0.12;                                     // flesh resists sharp kinks
+        for (let i = 2; i <= n; i++) { vD.copy(X[i - 1]).multiplyScalar(2).sub(X[i - 2]); X[i].lerp(vD, isT ? kb + 0.45 * ss(0.78, 0.88, i / n) : kb * (1 - 0.6 * i / n)); }   // the club is a stiff paddle
+        if (it === 1) for (let i = 3; i <= n; i++) {
+          toL(X[i], vL);
+          if (vL.x > -0.31 && vL.x < 0.02) {                               // the head
+            const rr = Math.hypot(vL.y, vL.z) || 1e-5, need = 0.1 + sim.rad[i] / BODY_LEN;
+            if (rr < need) { vL.y *= need / rr; vL.z *= need / rr; toH(X[i].copy(vL)); }
+          }
+        }
+      });
+      if (it === 2) for (let a = 0; a < sims.length; a++) for (let b = a + 1; b < sims.length; b++) {
+        const A = sims[a], B = sims[b];
+        for (let i = 4; i <= A.n; i++) { const xa = A.x[i], ra = A.rad[i];
+          for (let j = 4; j <= B.n; j++) {
+            const xb = B.x[j], dx = xb.x - xa.x; const need = (ra + B.rad[j]) * 1.05; if (dx > need || dx < -need) continue;
+            const dy = xb.y - xa.y; if (dy > need || dy < -need) continue;
+            const dz = xb.z - xa.z, d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < need * need && d2 > 1e-10) { const d = Math.sqrt(d2), e = (need - d) / d * 0.5; xa.x -= dx * e; xa.y -= dy * e; xa.z -= dz * e; xb.x += dx * e; xb.y += dy * e; xb.z += dz * e; }
+          } }
       }
-      if (!ch.init) { for (let i = 0; i <= L.n; i++) ch.lag[i].copy(P[i]); ch.init = true; }
-      for (let i = 1; i <= L.n; i++) {
-        const s = i / L.n, f = k1(dt, lp(30, isT ? 1.4 : 5, s));
-        ch.lag[i].lerp(P[i], f);
+    }
+  }
+
+  // smooth curve through the simulated points, in body space, for the skin
+  function cr(a, b, c, d, t) { return 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t); }
+  function updateLimbs(dt) {
+    simAcc = Math.min(simAcc + dt, SIMH * 4);
+    while (simAcc >= SIMH * 0.999) { simStep(SIMH); simAcc -= SIMH; }
+    qInv.copy(body.quaternion).invert();
+    specs.forEach((L, li) => {
+      const sim = sims[li], n = sim.n, C = sim.loc, P = chains[li].pts;
+      for (let i = 0; i <= n; i++) toL(sim.x[i], C[i]);
+      for (let i = 0; i <= L.n; i++) {
+        const f = (i / L.n) * n, k = Math.min(Math.floor(f), n - 1), t = f - k;
+        const a = C[Math.max(k - 1, 0)], b = C[k], c = C[k + 1], d = C[Math.min(k + 2, n)];
+        P[i].set(cr(a.x, b.x, c.x, d.x, t), cr(a.y, b.y, c.y, d.y, t), cr(a.z, b.z, c.z, d.z, t));
       }
-      ch.lag[0].copy(P[0]);
-      for (let i = 1; i <= L.n; i++) { tmp.subVectors(ch.lag[i], ch.lag[i - 1]); const d = tmp.length() || 1; ch.lag[i].copy(ch.lag[i - 1]).addScaledVector(tmp, seg / d); }
-      writeTube(li, L, ch.lag);
+      writeTube(li, L, P);
     });
     writeHooks();
     limbs.geo.attributes.position.needsUpdate = true;
@@ -740,7 +815,7 @@ export function createSquid() {
     let r = lp(L.r0, L.r1, ss(0.0, 0.2, s));
     r *= 1 - ss(0.95, 1.0, s) * 0.7;
     const teeth = 1 + 0.16 * club * Math.pow(0.5 + 0.5 * Math.sin(s * 900), 3);   // toothed edge
-    return { r, w: (1 + club * 7.5) * teeth, h: 1 - club * 0.62, club };
+    return { r, w: (1 + club * 5.2) * teeth, h: 1 - club * 0.62, club };
   }
 
   function writeTube(li, L, P) {
@@ -847,30 +922,40 @@ export function createSquid() {
     Q.t += dt; Q.modeT += dt;
     const t = Q.t;
     const wantIdle = ctx.idle > 7;
-    if (wantIdle && Q.mode !== 'idle') { Q.mode = 'idle'; Q.modeT = 0; }
     if (!wantIdle && Q.mode === 'idle') { Q.mode = 'cruise'; Q.modeT = 0; }
     Q.agit = lp(Q.agit, ctx.agitate || 0, k1(dt, (ctx.agitate || 0) > Q.agit ? 6 : 0.8));
 
-    // one slow stroke: arms open as the mantle fills, then arms sweep shut as the mantle squeezes, then a long glide.
-    // the fin keeps a slow steady beat of its own.
-    const period = Q.mode === 'idle' ? 9 : 6.5 - Q.agit * 2;
+    // one slow stroke: arms open as the mantle fills, then sweep shut as the mantle squeezes, then a long glide.
+    // no two strokes are quite alike: each has its own length and strength.
     if (Q.jet >= 1) { Q.jetE = 1; Q.jet = 0; Q.sc = Math.floor(Q.sc) + 0.27; }
     Q.jetE = Math.max(0, Q.jetE - dt * 0.55);
-    Q.sc = (Q.sc || 0) + dt / period;
+    const before = Math.floor(Q.sc || 0);
+    Q.sc = (Q.sc || 0) + dt / (Q.period || 6.5);
+    if (Math.floor(Q.sc) !== before) {
+      Q.period = 5.6 + Math.random() * 2.6 - Q.agit * 1.5;
+      strokeAmp = 0.7 + Math.random() * 0.4; strokeSeed = Math.random() * TAU;
+      for (let i = 0; i < ARMN; i++) armJit[i] = 0.88 + Math.random() * 0.24;
+    }
     Q.cyc = Q.sc % 1;
-    Q.ph += dt / 2.3 * TAU * (1 + Q.jetE * 1.2);
-    const o = openAt(Q.cyc);
-    const squeeze = ss(0.28, 0.4, Q.cyc) * (1 - ss(0.46, 0.75, Q.cyc)) * (Q.mode === 'idle' ? 0.3 : 1);
-    Q.pulse = lp(Q.pulse, Math.max(squeeze * 0.8 + 0.08 * (0.5 + 0.5 * Math.sin(Q.ph)), Q.jetE), k1(dt, 8));
+    Q.ph += dt / 2.5 * TAU * (1 + Q.jetE * 1.2) * (1 + 0.12 * Math.sin(t * 0.23));
+    const o = openAt(Q.cyc) * strokeAmp;
+    const squeeze = ss(0.28, 0.4, Q.cyc) * (1 - ss(0.46, 0.75, Q.cyc)) * strokeAmp;
+    Q.pulse = lp(Q.pulse, Math.max(squeeze * 0.8 + 0.08 * (0.5 + 0.5 * Math.sin(Q.ph)), Q.jetE), k1(dt, 6));
     Q.slack = lp(Q.slack, o, k1(dt, 0.9));
-    Q.speed = lp(Q.speed, (Q.mode === 'idle' ? 0.1 : 0.3) + squeeze * (0.5 + Q.jetE * 1.4) + Q.agit * 0.3, k1(dt, squeeze > 0.1 ? 3 : 0.7));
-    Q.surge = lp(Q.surge, squeeze * 0.09 * (1 + Q.jetE) - o * 0.03, k1(dt, 1.6));
-    Q.finAmp = lp(Q.finAmp, (Q.mode === 'idle' ? 1.0 : 0.85) * (1 - Q.jetE * 0.8) * (1 - squeeze * 0.4), k1(dt, 2));
+    Q.jetFlow = lp(Q.jetFlow || 0, squeeze + Q.jetE, k1(dt, 5));
+    // the body is a mass in water: the jet and the closing arms push it, drag slows it, open arms brake it
+    const thrust = 0.11 + squeeze * (0.75 + Q.jetE * 1.6) + Q.agit * 0.2 + 0.03 * Q.finAmp;
+    const dragK = 0.42 + 0.5 * o;
+    const v0 = Q.speed;
+    Q.speed += (thrust - dragK * Q.speed) * dt;
+    Q.acc = lp(Q.acc || 0, (Q.speed - v0) / Math.max(dt, 1e-4), k1(dt, 4));
+    Q.surge = lp(Q.surge, (Q.speed - 0.42) * 0.22, k1(dt, 2.5));
+    Q.finAmp = lp(Q.finAmp, (0.8 + 0.15 * Math.sin(t * 0.31 + 1)) * (1 - Q.jetE * 0.8) * (1 - squeeze * 0.35), k1(dt, 2));
 
     // body attitude: fin first and upward, held steady with only a slow small sway
     const curious = (ctx.pointerX || 0);
     Q.yaw = lp(Q.yaw, 0.07 * Math.sin(t * 0.17) + curious * 0.06, k1(dt, 0.8));
-    Q.pitch = lp(Q.pitch, 0.05 * Math.sin(t * 0.21 + 1) + (ctx.pointerY || 0) * 0.04 + (Q.mode === 'idle' ? -0.15 : 0), k1(dt, 0.8));
+    Q.pitch = lp(Q.pitch, 0.05 * Math.sin(t * 0.21 + 1) + (ctx.pointerY || 0) * 0.04 - cl(Q.acc || 0, -1, 1) * 0.07, k1(dt, 1.2));   // it nods a little into each push
     Q.roll = lp(Q.roll, 0.1 * Math.sin(t * 0.15 + 2) - curious * 0.05, k1(dt, 0.7));
     Q.eye.x = lp(Q.eye.x, cl(ctx.pointerX || 0, -1, 1), k1(dt, 6));
     Q.eye.y = lp(Q.eye.y, cl(ctx.pointerY || 0, -1, 1), k1(dt, 6));
@@ -887,7 +972,7 @@ export function createSquid() {
     // the whole body bobs forward on each push
     body.position.set(Q.surge, 0, 0).applyQuaternion(body.quaternion);
     updateFin(Q.t);
-    updateLimbs(dt, Q.t);
+    updateLimbs(dt);
   }
 
   // travel direction: local +X points up-right, slightly toward the camera; dorsal side faces the viewer
@@ -904,7 +989,6 @@ export function createSquid() {
   for (let i = 0; i < 120; i++) { step(1 / 60, { idle: 0, pointerX: 0, pointerY: 0 }); apply(1 / 60); }
 
   const proj = new THREE.Vector3();
-  const BODY_LEN = 1.9;              // world size of the body (collar to fin tip)
   body.scale.setScalar(BODY_LEN);
   const CENTER = new THREE.Vector3(0.1, 0, 0);   // what the holder keeps on the anchor (local)
 
